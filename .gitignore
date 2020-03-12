@@ -1,0 +1,5 @@
+*.csv
+*.txt
+funzioni_di_prova.py
+__pycache__
+.ipynb_checkpoints
