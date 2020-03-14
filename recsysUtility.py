@@ -145,13 +145,20 @@ class RecSysUtility:
             val = val.drop(not_useful_cols, axis=1)
 
             print('Load LGBM model')
-            bst = lgb.Booster(model_file='model_Like.txt')
+            bst = lgb.Booster(model_file='model_{}.txt'.format(label))
             print('Start Prediction')
             df_out['Prediction'] = bst.predict(val)
-            df_out.to_csv('prediction_{}_{}.csv'.format(label, id), index=False, header=False)
+            df_out.to_csv('./{}/prediction_{}.csv'.format(label, id), index=False, header=False)
             id += 1
             del val, df_out
             gc.collect()
+        
+        files_csv = os.listdir('./{}'.format(label))
+        to_concat = []
+        for f in files_csv:
+            to_concat.append(pd.read_csv('./{}/{}'.format(label,f), header=None))
+        df_grouped = pd.concat(to_concat, axis=0, ignore_index=True)
+        df_grouped.to_csv('prediction_{}.csv'.format(label), index=False)
 
     def incremental_gradient_boosting(self, label):
         """
@@ -176,7 +183,7 @@ class RecSysUtility:
             'verbose': 0
         }
         not_useful_cols = ['Tweet id', 'User id', 'User id engaging', 'Reply engagement timestamp', 'Retweet engagement timestamp', 'Retweet with comment engagement timestamp', 'Like engagement timestamp']
-        
+        n_chunk = 0
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=5000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
@@ -211,12 +218,13 @@ class RecSysUtility:
                         num_boost_round=10)
             del df_chunk, X_train, y_train, X_val, y_val
             gc.collect()
+            lgb_estimator.save_model('model_{}_step{}.txt'.format(label, n_chunk))
+            n_chunk += 1
 
-        lgb_estimator.save_model('model_{}.txt'.format(label))
-        lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
-        lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
-        ax = lgb.plot_tree(lgb_estimator, figsize=(15, 15), show_info=['split_gain'])
-        plt.show()
+        #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
+        #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
+        #ax = lgb.plot_tree(lgb_estimator, figsize=(15, 15), show_info=['split_gain'])
+        #plt.show()
         return lgb_estimator
 
 
