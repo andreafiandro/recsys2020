@@ -329,6 +329,36 @@ class RecSysUtility:
                 first_file = True
                 #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
                 #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
+        print('Split training and test set')
+        df_train, df_val = train_test_split(df_training, test_size=0.1)   
+        print('Training size: {}'.format(df_train.shape[0]))
+        print('Validation size: {}'.format(df_val.shape[0]))
+
+
+        print('Removing column not useful from training')
+        y_train = df_train[label].fillna(0)
+        y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
+        X_train = df_train.drop(not_useful_cols, axis=1)
+        y_val = df_val[label].fillna(0)
+        y_val = y_val.apply(lambda x : 0 if x == 0 else 1)
+        X_val = df_val.drop(not_useful_cols, axis=1)
+        print(X_val.head())
+        #print(y_val)
+
+        print('Start training...')
+        lgb_estimator = lgb.train(params,
+                    keep_training_booster=True,
+                    # Pass partially trained model:
+                    init_model=lgb_estimator,
+                    train_set=lgb.Dataset(X_train, y_train),
+                    valid_sets=lgb.Dataset(X_val, y_val),
+                    num_boost_round=10)
+
+        y_pred = lgb_estimator.predict(X_val)
+        prauc = self.compute_prauc(y_pred, y_val)
+        rce = self.compute_rce(y_pred, y_val)
+
+        print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
 
         lgb_estimator.save_model('model_{}.txt'.format(label))
 
