@@ -5,4 +5,4 @@ rsUtils = RecSysUtility('/home/andreafiandro/NAS/training.tsv')
 
 #model = rsUtils.incremental_gradient_boosting('Reply')
 #model = rsUtils.incremental_gradient_boosting('Retweet')
-model = rsUtils.incremental_gradient_boosting('Retweet with comment')
+model = rsUtils.gradient_boosting('Retweet with comment')

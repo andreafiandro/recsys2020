@@ -9,6 +9,7 @@ import numpy as np
 import gc
 import time
 import matplotlib.pyplot as plt
+from sklearn.metrics import precision_recall_curve, auc, log_loss
 
 
 class RecSysUtility:
@@ -187,7 +188,14 @@ class RecSysUtility:
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=5000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
+            df_negative = df_chunk[df_chunk[label].isna()]
+            df_positive = df_chunk[~df_chunk[label].isna()]
+            #n_positive = df_chunk[label].isna()
+            print('Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+            df_negative = df_negative.sample(n=df_positive.shape[0], random_state=1)
+            print('RESAMPLE -- Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
             print('Starting feature engineering...')
+            df_chunk = pd.concat([df_positive, df_negative], axis=0, ignore_index=True)
             df_chunk = self.generate_features_lgb(df_chunk)
             df_chunk = self.encode_string_features(df_chunk)
 
@@ -216,16 +224,122 @@ class RecSysUtility:
                         train_set=lgb.Dataset(X_train, y_train),
                         valid_sets=lgb.Dataset(X_val, y_val),
                         num_boost_round=10)
+
+            y_pred = lgb_estimator.predict(X_val)
+            prauc = self.compute_prauc(y_pred, y_val)
+            rce = self.compute_rce(y_pred, y_val)
+
+            print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+            #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
+            #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
+            plt.show()
             del df_chunk, X_train, y_train, X_val, y_val
             gc.collect()
             lgb_estimator.save_model('model_{}_step{}.txt'.format(label, n_chunk))
             n_chunk += 1
 
         #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
+        #        lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
+        #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
         #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
         #ax = lgb.plot_tree(lgb_estimator, figsize=(15, 15), show_info=['split_gain'])
         #plt.show()
+        
         return lgb_estimator
+    
+    def gradient_boosting(self, label):
+        """
+            This function is used to train a gradient boosting model by means of incremental learning.
+            INPUT:
+                - label -> the label for the training model (Like, Retweet, Comment or Reply)
+            OUTPUT:
+                - trained lgbm model that will be also written on the disk
+        """      
+        label = label + ' engagement timestamp'
+        lgb_estimator = None
+        params = {
+            'boosting_type': 'gbdt',
+            'objective': 'binary',
+            'metric': {'auc'},
+            'num_leaves': 170,
+            'n_estimators': 100,
+            'learning_rate': 0.01,
+            'feature_fraction': 0.9,
+            'bagging_fraction': 0.8,
+            'bagging_freq': 5,
+            'verbose': 0
+        }
+        first_file = True
+        not_useful_cols = ['Tweet id', 'User id', 'User id engaging', 'Reply engagement timestamp', 'Retweet engagement timestamp', 'Retweet with comment engagement timestamp', 'Like engagement timestamp']
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=6000000):
+            print('Processing the chunk...')
+            df_chunk = self.process_chunk_tsv(df_chunk)
+            df_negative = df_chunk[df_chunk[label].isna()]
+            df_positive = df_chunk[~df_chunk[label].isna()]
+            #n_positive = df_chunk[label].isna()
+            print('Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+            df_negative = df_negative.sample(n=df_positive.shape[0], random_state=1)
+            print('RESAMPLE -- Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+            print('Starting feature engineering...')
+            df_chunk = pd.concat([df_positive, df_negative], axis=0, ignore_index=True)
+            df_chunk = self.generate_features_lgb(df_chunk)
+            df_chunk = self.encode_string_features(df_chunk)
+            if(first_file):
+                df_training = df_chunk.copy()
+                first_file = False
+            else:
+                df_training = pd.concat([df_training, df_chunk], axis=0, ignore_index=True)
+            
+            print('Training size: {}'.format(df_training.shape[0]))
+            del df_chunk, df_negative, df_positive
+            gc.collect()
+
+
+
+        print('Split training and test set')
+        df_train, df_val = train_test_split(df_training, test_size=0.1)   
+        print('Training size: {}'.format(df_train.shape[0]))
+        print('Validation size: {}'.format(df_val.shape[0]))
+
+
+        print('Removing column not useful from training')
+        y_train = df_train[label].fillna(0)
+        y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
+        X_train = df_train.drop(not_useful_cols, axis=1)
+        y_val = df_val[label].fillna(0)
+        y_val = y_val.apply(lambda x : 0 if x == 0 else 1)
+        X_val = df_val.drop(not_useful_cols, axis=1)
+        print(X_val.head())
+        #print(y_val)
+
+        print('Start training...')
+        lgb_estimator = lgb.train(params,
+                    keep_training_booster=True,
+                    # Pass partially trained model:
+                    init_model=lgb_estimator,
+                    train_set=lgb.Dataset(X_train, y_train),
+                    valid_sets=lgb.Dataset(X_val, y_val),
+                    num_boost_round=10)
+
+        y_pred = lgb_estimator.predict(X_val)
+        prauc = self.compute_prauc(y_pred, y_val)
+        rce = self.compute_rce(y_pred, y_val)
+
+        print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+        #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
+        #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
+
+        lgb_estimator.save_model('model_{}.txt'.format(label))
+
+        #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
+        #        lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
+        #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
+        #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
+        #ax = lgb.plot_tree(lgb_estimator, figsize=(15, 15), show_info=['split_gain'])
+        #plt.show()
+        
+        return lgb_estimator
+
 
 
 
@@ -267,3 +381,23 @@ class RecSysUtility:
         df['Tweet type'] = df['Tweet type'].apply(lambda x: self.tweet_type_dic[x])
         df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x])
         return df
+
+    """
+    Official functions for computing metrics
+    """
+
+    def compute_prauc(self, pred, gt):
+        prec, recall, thresh = precision_recall_curve(gt, pred)
+        prauc = auc(recall, prec)
+        return prauc
+
+    def calculate_ctr(self, gt):
+        positive = len([x for x in gt if x == 1])
+        ctr = positive/float(len(gt))
+        return ctr
+
+    def compute_rce(self, pred, gt):
+        cross_entropy = log_loss(gt, pred)
+        data_ctr = self.calculate_ctr(gt)
+        strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
+        return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
