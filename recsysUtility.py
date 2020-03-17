@@ -458,5 +458,9 @@ class RecSysUtility:
         else:
             dd_input.columns = self.col_names_training
         n_tweets = dd_input['Tweet_id'].unique().compute()
-        self.print_and_log('The Dataframe has {} tweets'.format(n_tweets))
+        self.print_and_log('The Dataframe has {} tweets'.format(n_tweets.shape[0]))
         return
+    
+    # def get_all_authors(self):
+    #     dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+    #     list_authors
