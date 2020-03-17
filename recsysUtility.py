@@ -475,7 +475,7 @@ class RecSysUtility:
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         list_authors = dd_input['User_id_engaging'].unique().compute()
-        self.print_and_log('The Dataframe has {} authors'.format(list_authors.shape[0]))
+        self.print_and_log('The Dataframe has {} users'.format(list_authors.shape[0]))
         return set(list_authors)
 
     def user_or_author(self):
@@ -514,7 +514,7 @@ class RecSysUtility:
     def get_validation_users(self, val_file):
         print('I get all the users from validation')
         dd_input = dd.read_csv(val_file, sep='\u0001', header=None)
-        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = self.process_chunk_tsv(dd_input, isVal=True)
         list_users = dd_input['User_id_engaging'].unique().compute()
         self.print_and_log('The Validation Set has {} users'.format(list_users.shape[0]))
         return set(list_users)
