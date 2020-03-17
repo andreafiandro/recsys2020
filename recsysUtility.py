@@ -462,25 +462,25 @@ class RecSysUtility:
         self.print_and_log('The Dataframe has {} tweets'.format(n_tweets.shape[0]))
         return
     
-    def get_all_authors(self):
+    def get_all_authors(self, isVal=False):
         print('I get all the tweet authors')
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
-        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = self.process_chunk_tsv(dd_input, isVal=isVal)
         list_authors = dd_input['User_id'].unique().compute()
         self.print_and_log('The Dataframe has {} authors'.format(list_authors.shape[0]))
         return set(list_authors)
     
-    def get_all_users(self):
+    def get_all_users(self, isVal=False):
         print('I get all the tweet user')
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
-        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = self.process_chunk_tsv(dd_input, isVal=isVal)
         list_authors = dd_input['User_id_engaging'].unique().compute()
         self.print_and_log('The Dataframe has {} users'.format(list_authors.shape[0]))
         return set(list_authors)
 
-    def user_or_author(self):
-        list_authors = self.get_all_authors()
-        list_users = self.get_all_users()
+    def user_or_author(self, isVal=False):
+        list_authors = self.get_all_authors(isVal)
+        list_users = self.get_all_users(isVal)
         
         print('Compute intersection')
         user_and_author = list_authors.intersection(list_users)
@@ -501,11 +501,11 @@ class RecSysUtility:
         gc.collect()
         return
     
-    def count_action_type(self, label):
+    def count_action_type(self, label, isVal=False):
         print('I get all the {} actions'.format(label))
         label_pandas = label + '_engagement_timestamp'
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
-        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = self.process_chunk_tsv(dd_input, isVal=isVal)
         df_not_null = dd_input[label_pandas][~dd_input[label_pandas].isna()].compute()
         self.print_and_log('There are {} action of type {}'.format(df_not_null.shape[0], label))
         return
