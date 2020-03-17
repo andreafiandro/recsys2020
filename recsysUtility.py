@@ -461,6 +461,36 @@ class RecSysUtility:
         self.print_and_log('The Dataframe has {} tweets'.format(n_tweets.shape[0]))
         return
     
-    # def get_all_authors(self):
-    #     dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
-    #     list_authors
+    def get_all_authors(self):
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        list_authors = dd_input['User_id'].unique().compute()
+        self.print_and_log('The Dataframe has {} authors'.format(list_authors.shape[0]))
+        return set(list_authors)
+    
+    def get_all_users(self):
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        list_authors = dd_input['User_id_engaging'].unique().compute()
+        self.print_and_log('The Dataframe has {} authors'.format(list_authors.shape[0]))
+        return set(list_authors)
+
+    def user_or_author(self):
+        list_authors = self.get_all_authors()
+        list_users = self.get_all_users()
+        
+        user_and_author = list_authors.intersection(list_users)
+        self.print_and_log('{} are both user and authors'.format(len(user_and_author)))
+        del user_and_author
+        gc.collect()
+
+        only_user = list_users.difference(list_authors)
+        self.print_and_log('{} are only users'.format(len(only_user)))
+        del only_user
+        gc.collect()
+        
+        only_authors = list_authors.difference(list_users)
+        self.print_and_log('{} are only authors'.format(len(only_authors)))
+        del only_authors
+        gc.collect()
+        return
