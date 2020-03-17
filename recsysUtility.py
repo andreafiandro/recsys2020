@@ -516,7 +516,7 @@ class RecSysUtility:
         dd_input = dd.read_csv(val_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         list_users = dd_input['User_id_engaging'].unique().compute()
-        self.print_and_log('The Validation Set has {} users'.format(list_authors.shape[0]))
+        self.print_and_log('The Validation Set has {} users'.format(list_users.shape[0]))
         return set(list_users)
 
 
