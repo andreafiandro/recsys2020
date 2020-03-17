@@ -448,13 +448,15 @@ class RecSysUtility:
     def count_n_lines(self):
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         n_rows = dd_input.shape[0].compute()
-        self.print_and_log()
         self.print_and_log('The Dataframe has {} lines'.format(n_rows))
         return
 
-    def count_n_tweets(self):
+    def count_n_tweets(self, isVal=False):
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
-        dd_input = self.process_chunk_tsv(dd_input)
+        if(isVal):
+            dd_input.columns = self.col_names_val
+        else:
+            dd_input.columns = self.col_names_training
         n_tweets = dd_input['Tweet_id'].unique().compute()
         self.print_and_log('The Dataframe has {} tweets'.format(n_tweets))
         return
