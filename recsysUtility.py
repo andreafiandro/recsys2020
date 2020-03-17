@@ -499,3 +499,12 @@ class RecSysUtility:
         del only_authors
         gc.collect()
         return
+    
+    def count_action_type(self, label):
+        print('I get all the {} actions'.format(label))
+        label_pandas = label + '_engagement_timestamp'
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        df_not_null = dd_input[label_pandas][~dd_input[label_pandas].isna()].compute()
+        self.print_and_log('There are {} action of type {}'.format(df_not_null.shape[0], label))
+        return
