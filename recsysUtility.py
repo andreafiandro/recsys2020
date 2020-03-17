@@ -10,6 +10,7 @@ import gc
 import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_curve, auc, log_loss
+import logging
 
 
 class RecSysUtility:
@@ -17,26 +18,29 @@ class RecSysUtility:
    
     def __init__(self, training_file):
         self.training_file = training_file
+        logging.basicConfig(filename='statistics.log',level=logging.INFO)
+        ProgressBar().register()
 
-        self.col_names_val = ['Text tokens', 'Hashtags', 'Tweet id', 'Present media', 'Present links', 'Present domains', 'Tweet type', 'Language', 'Timestamp',
-        'User id', 'Follower count', 'Following count', 'Is verified', 'Account creation time',
-        'User id engaging', 'Follower count engaging', 'Following count engaging', 'Is verified engaging', 'Account creation time engaging',
-        'Engagee follows engager']
+        self.col_names_val = ['Text_tokens', 'Hashtags', 'Tweet_id', 'Present_media', 'Present_links', 'Present_domains', 'Tweet_type', 'Language', 'Timestamp',
+        'User_id', 'Follower_count', 'Following_count', 'Is_verified', 'Account_creation_time',
+        'User_id_engaging', 'Follower_count_engaging', 'Following_count_engaging', 'Is_verified_engaging', 'Account_creation_time_engaging',
+        'Engagee_follows_engager']
 
-        self.col_names_training = ['Text tokens', 'Hashtags', 'Tweet id', 'Present media', 'Present links', 'Present domains', 'Tweet type', 'Language', 'Timestamp',
-        'User id', 'Follower count', 'Following count', 'Is verified', 'Account creation time',
-        'User id engaging', 'Follower count engaging', 'Following count engaging', 'Is verified engaging', 'Account creation time engaging',
-        'Engagee follows engager', 'Reply engagement timestamp', 'Retweet engagement timestamp', 'Retweet with comment engagement timestamp', 'Like engagement timestamp']
+        self.col_names_training = ['Text_tokens', 'Hashtags', 'Tweet_id', 'Present_media', 'Present_links', 'Present_domains', 'Tweet_type', 'Language', 'Timestamp',
+        'User_id', 'Follower_count', 'Following_count', 'Is_verified', 'Account_creation_time',
+        'User_id_engaging', 'Follower_count_engaging', 'Following_count_engaging', 'Is_verified_engaging', 'Account_creation_time_engaging',
+        'Engagee_follows_engager', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
 
 
 
     def reduce_mem_usage(self, df):
         """ 
+        NON FUNZIONA
         iterate through all the columns of a dataframe and 
         modify the data type to reduce memory usage.        
         """
         start_mem = df.memory_usage().sum() / 1024**2
-        print(('Memory usage of dataframe is {:.2f}' 
+        self.print_and_log(('Memory usage of dataframe is {:.2f}' 
                         'MB').format(start_mem))
         
         for col in df.columns:
@@ -70,7 +74,7 @@ class RecSysUtility:
             else:
                 df[col] = df[col].astype('category')
         end_mem = df.memory_usage().sum() / 1024**2
-        print(('Memory usage after optimization is: {:.2f}' 
+        self.print_and_log(('Memory usage after optimization is: {:.2f}' 
                                 'MB').format(end_mem))
         print('Decreased by {:.1f}%'.format(100 * (start_mem - end_mem) 
                                                 / start_mem))
@@ -87,15 +91,15 @@ class RecSysUtility:
             return x.replace('\t', '|')
     
 
-    def process_chunk_tsv(self, df, col_to_clean=['Text tokens', 'Hashtags', 'Present media', 'Present links', 'Present domains'], isVal=False):
+    def process_chunk_tsv(self, df, col_to_clean=['Text_tokens', 'Hashtags', 'Present_media', 'Present_links', 'Present_domains'], isVal=False):
         if(isVal):
             df.columns = self.col_names_val
         else:
             df.columns = self.col_names_training
 
         # Convert boolean to 1 / 0
-        df['Is verified'] = df['Is verified'].apply(lambda  x: 1 if x else 0)
-        df['Is verified engaging'] = df['Is verified engaging'].apply(lambda  x: 1 if x else 0)
+        df['Is_verified'] = df['Is_verified'].apply(lambda  x: 1 if x else 0)
+        df['Is_verified_engaging'] = df['Is_verified_engaging'].apply(lambda  x: 1 if x else 0)
         
         for col in col_to_clean:
             df[col] = df[col].apply(lambda x: self.clean_col(x))
@@ -124,22 +128,20 @@ class RecSysUtility:
             return len(x.split('|'))
 
 
-    
-    
     def generate_submission(self, validation_file, label):
         """
             Function used to generate the submission file.
             Starting from the file 
         """
 
-        not_useful_cols = ['Tweet id', 'User id', 'User id engaging']
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
         id = 0
         for val in pd.read_csv(validation_file, sep='\u0001', header=None, chunksize=3000000):
             print('Predicting chunk {}'.format(id))
             val = self.process_chunk_tsv(val, isVal=True)
             df_out = pd.DataFrame(columns = ['Tweet_id', 'User_id', 'Prediction'])
-            df_out['Tweet_id'] = val['Tweet id']
-            df_out['User_id'] = val['User id engaging']
+            df_out['Tweet_id'] = val['Tweet_id']
+            df_out['User_id'] = val['User_id_engaging']
             print('Starting feature engineering...')
             val = self.generate_features_lgb(val)
             val = self.encode_string_features(val)
@@ -169,7 +171,7 @@ class RecSysUtility:
             OUTPUT:
                 - trained lgbm model that will be also written on the disk
         """      
-        label = label + ' engagement timestamp'
+        label = label + '_engagement_timestamp'
         lgb_estimator = None
         params = {
             'boosting_type': 'gbdt',
@@ -183,7 +185,7 @@ class RecSysUtility:
             'bagging_freq': 5,
             'verbose': 0
         }
-        not_useful_cols = ['Tweet id', 'User id', 'User id engaging', 'Reply engagement timestamp', 'Retweet engagement timestamp', 'Retweet with comment engagement timestamp', 'Like engagement timestamp']
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=5000000):
             print('Processing the chunk...')
@@ -255,7 +257,7 @@ class RecSysUtility:
             OUTPUT:
                 - trained lgbm model that will be also written on the disk
         """      
-        label = label + ' engagement timestamp'
+        label = label + '_engagement_timestamp'
         lgb_estimator = None
         params = {
             'boosting_type': 'gbdt',
@@ -270,7 +272,7 @@ class RecSysUtility:
             'verbose': 0
         }
         first_file = True
-        not_useful_cols = ['Tweet id', 'User id', 'User id engaging', 'Reply engagement timestamp', 'Retweet engagement timestamp', 'Retweet with comment engagement timestamp', 'Like engagement timestamp']
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=6000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
@@ -381,15 +383,15 @@ class RecSysUtility:
 
         # Count the number of the items in the following columns
         # TODO: Present link, media e domains per ora sono semplicemente sommati, in realtà andrebbe specificato il tipo di media con il numero di elementi (es. 2 video, 3 foto ecc...)
-        col_to_count=['Text tokens', 'Hashtags', 'Present media', 'Present links', 'Present domains']
+        col_to_count=['Text_tokens', 'Hashtags', 'Present_media', 'Present_links', 'Present_domains']
 
         for col in col_to_count:
             df[col] = df[col].apply(lambda x: self.count_item(x))
 
         # Instead of timestamp, I count the seconds elapsed from the account creation
         current_timestamp = int(time.time())
-        df['Account creation time'] = df['Account creation time'].apply(lambda x: current_timestamp - x)
-        df['Account creation time engaging'] = df['Account creation time engaging'].apply(lambda x: current_timestamp - x)
+        df['Account_creation_time'] = df['Account_creation_time'].apply(lambda x: current_timestamp - x)
+        df['Account_creation_time_engaging'] = df['Account_creation_time_engaging'].apply(lambda x: current_timestamp - x)
         
         return df
 
@@ -399,7 +401,7 @@ class RecSysUtility:
         """
         self.tweet_type_dic = {}
         tweet_type_id = 0
-        for t in df['Tweet type'].unique():
+        for t in df['Tweet_type'].unique():
             self.tweet_type_dic[t] = tweet_type_id
             tweet_type_id += 1
 
@@ -409,7 +411,7 @@ class RecSysUtility:
             self.lang_dic[t] = lang_id
             lang_id += 1
 
-        df['Tweet type'] = df['Tweet type'].apply(lambda x: self.tweet_type_dic[x])
+        df['Tweet_type'] = df['Tweet_type'].apply(lambda x: self.tweet_type_dic[x])
         df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x])
         return df
 
@@ -432,3 +434,27 @@ class RecSysUtility:
         data_ctr = self.calculate_ctr(gt)
         strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
         return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
+
+    def print_and_log(self, to_print):
+        logging.info(to_print)
+        print(to_print)
+        return
+    """
+    ------------------------------------------------------------------------------------------
+    DATASET STATISTICS
+    ------------------------------------------------------------------------------------------
+    """
+
+    def count_n_lines(self):
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        n_rows = dd_input.shape[0].compute()
+        self.print_and_log()
+        self.print_and_log('The Dataframe has {} lines'.format(n_rows))
+        return
+
+    def count_n_tweets(self):
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        n_tweets = dd_input['Tweet_id'].unique().compute()
+        self.print_and_log('The Dataframe has {} tweets'.format(n_tweets))
+        return
