@@ -439,6 +439,7 @@ class RecSysUtility:
         logging.info(to_print)
         print(to_print)
         return
+
     """
     ------------------------------------------------------------------------------------------
     DATASET STATISTICS
@@ -507,4 +508,37 @@ class RecSysUtility:
         dd_input = self.process_chunk_tsv(dd_input)
         df_not_null = dd_input[label_pandas][~dd_input[label_pandas].isna()].compute()
         self.print_and_log('There are {} action of type {}'.format(df_not_null.shape[0], label))
+        return
+
+    
+    def get_validation_users(self, val_file):
+        print('I get all the users from validation')
+        dd_input = dd.read_csv(val_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        list_users = dd_input['User_id_engaging'].unique().compute()
+        self.print_and_log('The Validation Set has {} users'.format(list_authors.shape[0]))
+        return set(list_users)
+
+
+    def train_or_val(self, val_file):
+        list_training = self.get_all_users()
+        list_validation = self.get_validation_users(val_file)
+
+        print('Compute intersection')
+        training_and_val = list_training.intersection(list_validation)
+        self.print_and_log('{} are both in training and validation'.format(len(training_and_val)))
+        del training_and_val
+        gc.collect()
+
+        print('Compute only training')
+        only_training = list_training.difference(list_validation)
+        self.print_and_log('{} are only in the training'.format(len(only_training)))
+        del only_training
+        gc.collect()
+        
+        print('Compute only validation')
+        only_validation = list_validation.difference(list_training)
+        self.print_and_log('{} are only in the validation'.format(len(only_validation)))
+        del only_validation
+        gc.collect()
         return
