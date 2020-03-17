@@ -462,6 +462,7 @@ class RecSysUtility:
         return
     
     def get_all_authors(self):
+        print('I get all the tweet authors')
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         list_authors = dd_input['User_id'].unique().compute()
@@ -469,6 +470,7 @@ class RecSysUtility:
         return set(list_authors)
     
     def get_all_users(self):
+        print('I get all the tweet user')
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         list_authors = dd_input['User_id_engaging'].unique().compute()
@@ -479,16 +481,19 @@ class RecSysUtility:
         list_authors = self.get_all_authors()
         list_users = self.get_all_users()
         
+        print('Compute intersection')
         user_and_author = list_authors.intersection(list_users)
         self.print_and_log('{} are both user and authors'.format(len(user_and_author)))
         del user_and_author
         gc.collect()
 
+        print('Compute only user')
         only_user = list_users.difference(list_authors)
         self.print_and_log('{} are only users'.format(len(only_user)))
         del only_user
         gc.collect()
         
+        print('Compute only authors')
         only_authors = list_authors.difference(list_users)
         self.print_and_log('{} are only authors'.format(len(only_authors)))
         del only_authors
