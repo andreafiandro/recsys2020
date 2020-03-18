@@ -424,7 +424,7 @@ class RecSysUtility:
         print('Split training and validation')
         X_train, X_val, y_train, y_val = dask_split(X_train, y_train, test_size=0.1)
 
-        client = Client()
+        client = Client(processes=False)
 
         print('Start training...')
         bst = dask_xgboost.train(client, params, X_train, y_train, num_boost_round=30)
