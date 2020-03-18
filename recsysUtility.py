@@ -428,10 +428,9 @@ class RecSysUtility:
 
         print('Start training...')
         bst = dask_xgboost.train(client, params, X_train, y_train, num_boost_round=30)
-        client.shutdown()
-        client.close()
 
-        y_pred = bst.predict(X_val)
+        print('Start prediction')
+        y_pred = bst.predict(client, X_val)
         prauc = self.compute_prauc(y_pred, y_val)
         rce = self.compute_rce(y_pred, y_val)
 
