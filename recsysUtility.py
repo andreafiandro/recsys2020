@@ -415,7 +415,10 @@ class RecSysUtility:
         X_train = df_training.drop(not_useful_cols, axis=1)
         print('Split training and validation')
         X_train, X_val, y_train, y_val = dask_split(X_train, y_train, test_size=0.1)
-
+        print('Training shape: {}'.format(X_train.shape[0]))
+        print('Val shape: {}'.format(X_val.shape[0]))
+        print(X_train.head())
+        print(y_train)
         client = Client(processes=False)
 
         print('Start training...')
