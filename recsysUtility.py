@@ -248,7 +248,7 @@ class RecSysUtility:
             elif(type_gb=='xgb'):
                 estimator = xgb.train(xgb_params, 
                     dtrain=xgb.DMatrix(X_train, y_train),
-                    evals=(xgb.DMatrix(X_val, y_val),"Valid"),
+                    evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
                     obj='binary:logistic',
                     # Pass partially trained model:
                     xgb_model = estimator)
