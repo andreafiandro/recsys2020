@@ -392,7 +392,6 @@ class RecSysUtility:
 
         # Parameters for XGBoost
         print('Setting parameters for xgboost')
-        client = Client(n_workers=4, threads_per_worker=1)
 
         params = {
             'objective':'binary:logistic', 
@@ -422,6 +421,8 @@ class RecSysUtility:
         X_train = df_training.drop(not_useful_cols, axis=1)
         print('Split training and validation')
         X_train, X_val, y_train, y_val = dask_split(X_train, y_train, test_size=0.1)
+
+        client = Client()
 
         print('Start training...')
         bst = dask_xgboost.train(client, params, X_train, y_train, num_boost_round=30)
