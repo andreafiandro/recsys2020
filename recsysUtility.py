@@ -14,7 +14,7 @@ import logging
 from dask.distributed import Client, LocalCluster
 from dask_ml.model_selection import train_test_split as dask_split
 import dask
-import xgboost
+import xgboost as xgb
 import dask_xgboost
 import json
 import pickle
@@ -169,7 +169,7 @@ class RecSysUtility:
         df_grouped = pd.concat(to_concat, axis=0, ignore_index=True)
         df_grouped.to_csv('prediction_{}.csv'.format(label), index=False)
 
-    def incremental_gradient_boosting(self, label):
+    def incremental_gradient_boosting(self, label, type_gb='xgb'):
         """
             This function is used to train a gradient boosting model by means of incremental learning.
             INPUT:
@@ -178,19 +178,31 @@ class RecSysUtility:
                 - trained lgbm model that will be also written on the disk
         """      
         label = label + '_engagement_timestamp'
-        lgb_estimator = None
-        params = {
-            'boosting_type': 'gbdt',
-            'objective': 'binary',
-            'metric': {'auc'},
-            'num_leaves': 170,
-            'n_estimators': 100,
-            'learning_rate': 0.01,
-            'feature_fraction': 0.9,
-            'bagging_fraction': 0.8,
-            'bagging_freq': 5,
-            'verbose': 0
-        }
+        estimator = None
+        if(type_gb=='lgbm'):
+            lgbm_params = {
+                'boosting_type': 'gbdt',
+                'objective': 'binary',
+                'metric': {'auc'},
+                'num_leaves': 170,
+                'n_estimators': 100,
+                'learning_rate': 0.01,
+                'feature_fraction': 0.9,
+                'bagging_fraction': 0.8,
+                'bagging_freq': 5,
+                'verbose': 0
+            }
+        elif(type_gb=='xgb'):
+            xgb_params = {
+                'update':'refresh',
+                'process_type': 'update',
+                'refresh_leaf': True,
+                'silent': False,
+                'nthread':4,  
+                'seed':1,    
+                'eval_metric':'prauc',
+            }
+
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=5000000):
@@ -225,17 +237,26 @@ class RecSysUtility:
             #print(y_val)
 
             print('Start training...')
-            lgb_estimator = lgb.train(params,
-                        keep_training_booster=True,
-                        # Pass partially trained model:
-                        init_model=lgb_estimator,
-                        train_set=lgb.Dataset(X_train, y_train),
-                        valid_sets=lgb.Dataset(X_val, y_val),
-                        num_boost_round=10)
+            if(type_gb=='lgbm'):
+                estimator = lgb.train(lgbm_params,
+                            keep_training_booster=True,
+                            # Pass partially trained model:
+                            init_model=estimator,
+                            train_set=lgb.Dataset(X_train, y_train),
+                            valid_sets=lgb.Dataset(X_val, y_val),
+                            num_boost_round=10)
+            elif(type_gb=='xgb'):
+                estimator = xgb.train(xgb_params, 
+                    dtrain=xgb.DMatrix(X_train, y_train),
+                    evals=(xgb.DMatrix(X_val, y_val),"Valid"),
+                    obj=self.compute_rce,
+                    # Pass partially trained model:
+                    xgb_model = estimator)
 
-            y_pred = lgb_estimator.predict(X_val)
-            prauc = self.compute_prauc(y_pred, y_val)
-            rce = self.compute_rce(y_pred, y_val)
+
+            y_pred = estimator.predict(X_val)
+            prauc = self.compute_prauc(y_val, y_pred)
+            rce = self.compute_rce(y_val, y_pred)
 
             print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
             #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
@@ -243,7 +264,11 @@ class RecSysUtility:
             plt.show()
             del df_chunk, X_train, y_train, X_val, y_val
             gc.collect()
-            lgb_estimator.save_model('model_{}_step{}.txt'.format(label, n_chunk))
+
+            if(type_gb=='lgbm'):
+                estimator.save_model('model_lgbm_{}_step_{}.txt'.format(label, n_chunk))
+            elif(type_gb=='xgb'):
+                pickle.dump(estimator, open('model_xgb_{}_step_{}.dat'.format(label, n_chunk), "wb"))
             n_chunk += 1
 
         #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
@@ -253,7 +278,7 @@ class RecSysUtility:
         #ax = lgb.plot_tree(lgb_estimator, figsize=(15, 15), show_info=['split_gain'])
         #plt.show()
         
-        return lgb_estimator
+        return estimator
     
     def gradient_boosting(self, label):
         """
@@ -328,8 +353,8 @@ class RecSysUtility:
                             num_boost_round=10)
 
                 y_pred = lgb_estimator.predict(X_val)
-                prauc = self.compute_prauc(y_pred, y_val)
-                rce = self.compute_rce(y_pred, y_val)
+                prauc = self.compute_prauc(y_val, y_pred)
+                rce = self.compute_rce(y_val, y_pred)
 
                 print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
                 del df_training
@@ -434,7 +459,6 @@ class RecSysUtility:
 
         pickle.dump(bst, open('model_xgb_{}.dat'.format(label), "wb"))
 
-        return
         
         
     def generate_features_lgb(self, df):
@@ -485,7 +509,7 @@ class RecSysUtility:
     ------------------------------------------------------------------------------------------
     """
 
-    def compute_prauc(self, pred, gt):
+    def compute_prauc(self, gt, pred):
         prec, recall, thresh = precision_recall_curve(gt, pred)
         prauc = auc(recall, prec)
         return prauc
@@ -495,7 +519,7 @@ class RecSysUtility:
         ctr = positive/float(len(gt))
         return ctr
 
-    def compute_rce(self, pred, gt):
+    def compute_rce(self, gt, pred):
         cross_entropy = log_loss(gt, pred)
         data_ctr = self.calculate_ctr(gt)
         strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
@@ -505,6 +529,7 @@ class RecSysUtility:
         logging.info(to_print)
         print(to_print)
         return
+
 
     """
     ------------------------------------------------------------------------------------------
