@@ -200,6 +200,7 @@ class RecSysUtility:
                 'silent': False,
                 'nthread':4,  
                 'seed':1,    
+                'objective':'binary:logistic',
                 'eval_metric':'aucpr',
             }
 
@@ -249,7 +250,9 @@ class RecSysUtility:
                 estimator = xgb.train(xgb_params, 
                     dtrain=xgb.DMatrix(X_train, y_train),
                     evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
-                    obj=self.compute_rce,
+                    verbose_eval=10, 
+                    early_stopping_rounds=30,
+                    num_boost_round=100,
                     # Pass partially trained model:
                     xgb_model = estimator)
 
