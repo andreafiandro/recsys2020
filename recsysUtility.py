@@ -460,7 +460,7 @@ class RecSysUtility:
         
         return df
 
-    def encode_string_features(self, df):
+    def encode_string_features(self, df, isDask=False):
         """
         Function used to convert the features represented by strings. 
         """
@@ -475,9 +475,12 @@ class RecSysUtility:
         for t in df['Language'].unique():
             self.lang_dic[t] = lang_id
             lang_id += 1
-
-        df['Tweet_type'] = df['Tweet_type'].apply(lambda x: self.tweet_type_dic[x])
-        df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x])
+        if(isDask):
+            df['Tweet_type'] = df['Tweet_type'].apply(lambda x: self.tweet_type_dic[x], meta=('int'))
+            df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x], meta=('int'))
+        else:
+            df['Tweet_type'] = df['Tweet_type'].apply(lambda x: self.tweet_type_dic[x])
+            df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x])
         return df
 
     """
