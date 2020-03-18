@@ -419,7 +419,7 @@ class RecSysUtility:
         print('Val shape: {}'.format(X_val.shape[0]))
         print(X_train.head())
         print(y_train)
-        client = Client(processes=False)
+        client = Client("tcp://10.0.0.5:8786")
 
         print('Start training...')
         bst = dask_xgboost.train(client, params, X_train, y_train, num_boost_round=30)
