@@ -200,7 +200,7 @@ class RecSysUtility:
                 'silent': False,
                 'nthread':4,  
                 'seed':1,    
-                'eval_metric':'prauc',
+                'eval_metric':'aucpr',
             }
 
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
@@ -249,7 +249,7 @@ class RecSysUtility:
                 estimator = xgb.train(xgb_params, 
                     dtrain=xgb.DMatrix(X_train, y_train),
                     evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
-                    obj='binary:logistic',
+                    obj=self.compute_rce,
                     # Pass partially trained model:
                     xgb_model = estimator)
 
