@@ -415,7 +415,7 @@ class RecSysUtility:
         df_training = self.process_chunk_tsv(df_training)
         print('Starting feature engineering...')
         df_training = self.generate_features_lgb(df_training)
-        df_training = self.encode_string_features(df_training)
+        df_training = self.encode_string_features(df_training, isDask=True)
         self.save_dictionaries_on_file()
         print('Prepare data for training')
         y_train = df_training[label].fillna(0)
