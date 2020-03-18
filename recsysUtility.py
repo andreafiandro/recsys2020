@@ -11,7 +11,13 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_curve, auc, log_loss
 import logging
-
+from dask.distributed import Client
+from dask_ml.model_selection import train_test_split as dask_split
+import dask
+import xgboost
+import dask_xgboost
+import json
+import pickle
 
 class RecSysUtility:
 
@@ -373,9 +379,63 @@ class RecSysUtility:
         
         return lgb_estimator
 
+    def save_dictionaries_on_file(self):
+        f = open("lang.json","w")
+        f.write(self.lang_dic)
+        f.close()
+        f = open("tweet_type.json","w")
+        f.write(self.tweet_type_dic)
+        f.close()
+        return
+
+    def scalable_xgb(self, label):
+
+        # Parameters for XGBoost
+
+        client = Client(n_workers=4, threads_per_worker=1)
+
+        params = {
+            'objective':'binary:logistic', 
+            'eta':0.1, 
+            'booster':'gbtree',
+            'predictor': 'cpu_predictor',
+            'max_depth':7,         
+            'nthread':4,  
+            'seed':1,    
+            'eval_metric':'aucpr',
+        }
 
 
+        label = label + '_engagement_timestamp'
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
+        df_training = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        df_training = self.process_chunk_tsv(df_training)
+        print('Starting feature engineering...')
+        df_training = self.generate_features_lgb(df_training)
+        df_training = self.encode_string_features(df_training)
+        self.save_dictionaries_on_file()
+        print('Prepare data for training')
+        y_train = df_training[label].fillna(0)
+        y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
+        X_train = df_training.drop(not_useful_cols, axis=1)
+        print('Split training and validation')
+        X_train, X_val, y_train, y_val = dask_split(X_train, y_train, test_size=0.1)
 
+        print('Start training...')
+        bst = dask_xgboost.train(client, params, X_train, y_train, num_boost_round=30)
+
+
+        y_pred = bst.predict(X_val)
+        prauc = self.compute_prauc(y_pred, y_val)
+        rce = self.compute_rce(y_pred, y_val)
+
+        print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+
+        pickle.dump(bst, open('model_xgb_{}.dat'.format(label), "wb"))
+
+        return
+        
+        
     def generate_features_lgb(self, df):
         """
         Function to generate the features included in the gradient boosting model.
@@ -416,7 +476,9 @@ class RecSysUtility:
         return df
 
     """
-    Official functions for computing metrics
+    ------------------------------------------------------------------------------------------
+    OFFICIAL FUNCTIONS FOR EVALUATE THE SCORE
+    ------------------------------------------------------------------------------------------
     """
 
     def compute_prauc(self, pred, gt):
