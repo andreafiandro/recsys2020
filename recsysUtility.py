@@ -408,7 +408,7 @@ class RecSysUtility:
         label = label + '_engagement_timestamp'
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         print('Import file csv')
-        df_training = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        df_training = dd.read_csv(self.training_file, sep='\u0001', header=None, blocksize=10000)
         print('Read File readable')
         df_training = self.process_chunk_tsv(df_training)
         print('Starting feature engineering...')
