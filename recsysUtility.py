@@ -11,7 +11,7 @@ import time
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_recall_curve, auc, log_loss
 import logging
-from dask.distributed import Client
+from dask.distributed import Client, LocalCluster
 from dask_ml.model_selection import train_test_split as dask_split
 import dask
 import xgboost
@@ -419,7 +419,8 @@ class RecSysUtility:
         print('Val shape: {}'.format(X_val.shape[0]))
         print(X_train.head())
         print(y_train)
-        client = Client("tcp://10.0.0.5:8786")
+        cluster = LocalCluster()
+        client = Client(cluster)
 
         print('Start training...')
         bst = dask_xgboost.train(client, params, X_train, y_train, num_boost_round=30)
