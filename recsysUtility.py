@@ -391,7 +391,7 @@ class RecSysUtility:
     def scalable_xgb(self, label):
 
         # Parameters for XGBoost
-
+        print('Setting parameters for xgboost')
         client = Client(n_workers=4, threads_per_worker=1)
 
         params = {
@@ -431,7 +431,7 @@ class RecSysUtility:
         prauc = self.compute_prauc(y_pred, y_val)
         rce = self.compute_rce(y_pred, y_val)
 
-        print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+        self.print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
 
         pickle.dump(bst, open('model_xgb_{}.dat'.format(label), "wb"))
 
