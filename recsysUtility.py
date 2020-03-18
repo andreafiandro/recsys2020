@@ -381,10 +381,10 @@ class RecSysUtility:
 
     def save_dictionaries_on_file(self):
         f = open("lang.json","w")
-        f.write(self.lang_dic)
+        f.write(json.dumps(self.lang_dic))
         f.close()
         f = open("tweet_type.json","w")
-        f.write(self.tweet_type_dic)
+        f.write(json.dumps(self.tweet_type_dic))
         f.close()
         return
 
