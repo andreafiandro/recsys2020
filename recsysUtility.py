@@ -409,7 +409,7 @@ class RecSysUtility:
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         print('Import file csv')
         df_training = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=100000)
-        df_training = dd.from_pandas(df_training)
+        df_training = dd.from_pandas(df_training, npartitions=3)
         #df_training = dd.read_csv(self.training_file, sep='\u0001', header=None, blocksize=10000)
         print('Read File readable')
         df_training = self.process_chunk_tsv(df_training)
