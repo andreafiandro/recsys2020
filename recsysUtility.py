@@ -393,17 +393,9 @@ class RecSysUtility:
         # Parameters for XGBoost
         print('Setting parameters for xgboost')
 
-        params = {
-            'objective':'binary:logistic', 
-            'eta':0.1, 
-            'booster':'gbtree',
-            'predictor': 'cpu_predictor',
-            'max_depth':7,         
-            'nthread':4,  
-            'seed':1,    
-            'eval_metric':'aucpr',
-        }
-
+        params = {'objective': 'binary:logistic',
+                'max_depth': 4, 'eta': 0.01, 'subsample': 0.5,
+                'min_child_weight': 0.5}
 
         label = label + '_engagement_timestamp'
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
