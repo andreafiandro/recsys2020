@@ -36,7 +36,12 @@ class RecSysUtility:
         'User_id', 'Follower_count', 'Following_count', 'Is_verified', 'Account_creation_time',
         'User_id_engaging', 'Follower_count_engaging', 'Following_count_engaging', 'Is_verified_engaging', 'Account_creation_time_engaging',
         'Engagee_follows_engager', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
-
+        
+        # Indexes for features
+        self.tweet_type_id = 0
+        self.lang_id = 0
+        self.tweet_type_dic = {}
+        self.lang_dic = {}
 
 
     def reduce_mem_usage(self, df):
@@ -134,7 +139,7 @@ class RecSysUtility:
             return len(x.split('|'))
 
 
-    def generate_submission(self, validation_file, label):
+    def generate_submission(self, validation_file, label, gb_type='xgb'):
         """
             Function used to generate the submission file.
             Starting from the file 
@@ -150,13 +155,18 @@ class RecSysUtility:
             df_out['User_id'] = val['User_id_engaging']
             print('Starting feature engineering...')
             val = self.generate_features_lgb(val)
-            val = self.encode_string_features(val)
+            val = self.encode_val_string_features(val)
             val = val.drop(not_useful_cols, axis=1)
 
-            print('Load LGBM model')
-            bst = lgb.Booster(model_file='model_{}.txt'.format(label))
+            print('Load GB model')
+
+            if(gb_type=='lgbm'):
+                model = lgb.Booster(model_file='model_{}.txt'.format(label))
+            elif(gb_type=='xgb'):
+                model = pickle.load(open('model_xgb_{}.dat'.format(label), "rb"))
+
             print('Start Prediction')
-            df_out['Prediction'] = bst.predict(val)
+            df_out['Prediction'] = model.predict(val)
             df_out.to_csv('./{}/prediction_{}.csv'.format(label, id), index=False, header=False)
             id += 1
             del val, df_out
@@ -422,9 +432,13 @@ class RecSysUtility:
         return lgb_estimator
 
     def save_dictionaries_on_file(self):
+
+        os.remove('lang.json')
         f = open("lang.json","w")
         f.write(json.dumps(self.lang_dic))
         f.close()
+
+        os.remove('tweet_type.json')
         f = open("tweet_type.json","w")
         f.write(json.dumps(self.tweet_type_dic))
         f.close()
@@ -497,21 +511,47 @@ class RecSysUtility:
         
         return df
 
+    def encode_val_string_features(self, df):
+        """
+        Function used to encode the string features by means of the dictionaries generated during the training, useful during submission
+        """
+
+        jsonFile = open("lang.json", "r")
+        lang_dic = json.load(jsonFile)
+        jsonFile.close()
+
+        jsonFile = open("tweet_type.json", "r")
+        tweet_type_dic = json.load(jsonFile)
+        jsonFile.close()
+
+        df['Tweet_type'] = df['Tweet_type'].apply(lambda x: tweet_type_dic.get(x, -1))
+        df['Language'] = df['Language'].apply(lambda x: lang_dic.get(x, -1))
+
+        return df
+
+
+
+
     def encode_string_features(self, df, isDask=False):
         """
         Function used to convert the features represented by strings. 
         """
-        self.tweet_type_dic = {}
-        tweet_type_id = 0
-        for t in df['Tweet_type'].unique():
-            self.tweet_type_dic[t] = tweet_type_id
-            tweet_type_id += 1
 
-        self.lang_dic = {}
-        lang_id = 0
+        # Aggiorno i dizionari
+        for t in df['Tweet_type'].unique():
+            if t not in self.tweet_type_dic:
+                self.tweet_type_dic[t] = self.tweet_type_id
+                self.tweet_type_id += 1
+
+        
+
         for t in df['Language'].unique():
-            self.lang_dic[t] = lang_id
-            lang_id += 1
+            if t not in self.lang_dic:
+                self.lang_dic[t] = self.lang_id
+                self.lang_id += 1
+        
+        # Salvo i dizionari su json
+        self.save_dictionaries_on_file()
         if(isDask):
             df['Tweet_type'] = df['Tweet_type'].apply(lambda x: self.tweet_type_dic[x], meta=('int'))
             df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x], meta=('int'))
