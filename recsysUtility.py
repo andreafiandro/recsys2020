@@ -198,10 +198,6 @@ class RecSysUtility:
                 'process_type': 'update',
                 'refresh_leaf': True,
                 'silent': False,
-                'nthread':4,  
-                'seed':1,    
-                'objective':'binary:logistic',
-                'eval_metric':'aucpr',
             }
 
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
@@ -250,10 +246,6 @@ class RecSysUtility:
                 estimator = xgb.train(xgb_params, 
                     dtrain=xgb.DMatrix(X_train, y_train),
                     evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
-                    verbose_eval=10, 
-                    early_stopping_rounds=30,
-                    num_boost_round=100,
-                    # Pass partially trained model:
                     xgb_model = estimator)
 
 
