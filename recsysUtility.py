@@ -162,11 +162,13 @@ class RecSysUtility:
 
             if(gb_type=='lgbm'):
                 model = lgb.Booster(model_file='model_{}.txt'.format(label))
+                print('Start Prediction')
+                df_out['Prediction'] = model.predict(val)
             elif(gb_type=='xgb'):
                 model = pickle.load(open('model_xgb_{}.dat'.format(label), "rb"))
 
-            print('Start Prediction')
-            df_out['Prediction'] = model.predict(val)
+                print('Start Prediction')
+                df_out['Prediction'] = model.predict(xgb.DMatrix(val))
             df_out.to_csv('./{}/prediction_{}.csv'.format(label, id), index=False, header=False)
             id += 1
             del val, df_out
