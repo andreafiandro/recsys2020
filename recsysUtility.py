@@ -194,7 +194,7 @@ class RecSysUtility:
             }
         elif(type_gb=='xgb'):
             xgb_params = {
-                'update':'refresh',
+                'updater':'refresh',
                 'process_type': 'update',
                 'refresh_leaf': True,
                 'silent': False,
