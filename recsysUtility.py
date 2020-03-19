@@ -274,7 +274,7 @@ class RecSysUtility:
             prauc = self.compute_prauc(y_val, y_pred)
             rce = self.compute_rce(y_val, y_pred)
 
-            print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+            self.print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
             #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
             #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
             #plt.show()
