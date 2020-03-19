@@ -207,7 +207,7 @@ class RecSysUtility:
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
         first_file = True
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=6000000):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=7000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
             df_negative = df_chunk[df_chunk[label].isna()]
@@ -250,8 +250,11 @@ class RecSysUtility:
             elif(type_gb=='xgb'):
                 if(first_file):
                     estimator = xgb.train(xgb_params, 
-                    dtrain=xgb.DMatrix(X_train, y_train),
-                    evals=[(xgb.DMatrix(X_val, y_val),"Valid")])
+                                          num_boost_round=300,
+                                          early_stopping_rounds=30, 
+                                          dtrain=xgb.DMatrix(X_train, y_train),
+                                          evals=[(xgb.DMatrix(X_val, y_val),"Valid")])
+
                     first_file = False
                     xgb_params.update({
                     'updater':'refresh',
@@ -260,10 +263,12 @@ class RecSysUtility:
                     'silent': False
                      })
                 else:
-                    estimator = xgb.train(xgb_params, 
-                        dtrain=xgb.DMatrix(X_train, y_train),
-                        evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
-                        xgb_model = estimator)
+                    estimator = xgb.train(xgb_params,
+                                            num_boost_round=300,
+                                            early_stopping_rounds=30,  
+                                            dtrain=xgb.DMatrix(X_train, y_train),
+                                            evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
+                                            xgb_model = estimator)
 
 
             y_pred = estimator.predict(xgb.DMatrix(X_val))
