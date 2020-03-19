@@ -210,14 +210,14 @@ class RecSysUtility:
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=7000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
-            df_negative = df_chunk[df_chunk[label].isna()]
-            df_positive = df_chunk[~df_chunk[label].isna()]
+            #df_negative = df_chunk[df_chunk[label].isna()]
+            #df_positive = df_chunk[~df_chunk[label].isna()]
             #n_positive = df_chunk[label].isna()
-            print('Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
-            df_negative = df_negative.sample(n=df_positive.shape[0], random_state=1)
-            print('RESAMPLE -- Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+            #print('Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+            #df_negative = df_negative.sample(n=df_positive.shape[0], random_state=1)
+            #print('RESAMPLE -- Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
             print('Starting feature engineering...')
-            df_chunk = pd.concat([df_positive, df_negative], axis=0, ignore_index=True)
+            #df_chunk = pd.concat([df_positive, df_negative], axis=0, ignore_index=True)
             df_chunk = self.generate_features_lgb(df_chunk)
             df_chunk = self.encode_string_features(df_chunk)
 
@@ -226,7 +226,6 @@ class RecSysUtility:
             df_train, df_val = train_test_split(df_chunk, test_size=0.1)   
             print('Training size: {}'.format(df_train.shape[0]))
             print('Validation size: {}'.format(df_val.shape[0]))
-
 
             print('Removing column not useful from training')
             y_train = df_train[label].fillna(0)
@@ -275,12 +274,13 @@ class RecSysUtility:
             prauc = self.compute_prauc(y_val, y_pred)
             rce = self.compute_rce(y_val, y_pred)
 
-            print('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+            print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
             #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
             #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
-            plt.show()
+            #plt.show()
             del df_chunk, X_train, y_train, X_val, y_val
             gc.collect()
+            print('Saving model...')
 
             if(type_gb=='lgbm'):
                 estimator.save_model('model_lgbm_{}_step_{}.txt'.format(label, n_chunk))
