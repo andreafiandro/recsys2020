@@ -275,7 +275,7 @@ class RecSysUtility:
                      })
                 else:
                     estimator = xgb.train(xgb_params,
-                                            num_boost_round=300,
+                                            num_boost_round=200,
                                             early_stopping_rounds=30,  
                                             dtrain=xgb.DMatrix(X_train, y_train),
                                             evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
@@ -306,7 +306,13 @@ class RecSysUtility:
         #lgb.plot_importance(lgb_estimator, importance_type='gain', max_num_features=50)
         #ax = lgb.plot_tree(lgb_estimator, figsize=(15, 15), show_info=['split_gain'])
         #plt.show()
-        
+        if(type_gb=='lgbm'):
+            estimator.save_model('model_lgbm_{}.txt'.format(label))
+        elif(type_gb=='xgb'):
+            pickle.dump(estimator, open('model_xgb_{}.dat'.format(label), "wb"))
+            ax = xgb.plot_importance(estimator)
+            ax.figure.savefig('importance_{}.png'.format(label))
+
         return estimator
     
     def gradient_boosting(self, label):
