@@ -210,14 +210,15 @@ class RecSysUtility:
                 'booster':'gbtree',
                 'max_depth':7,         
                 'nthread':4,  
-                'seed':1
+                'seed':1,
+                'disable_default_eval_metric': 1
             }
 
 
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
         first_file = True
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=7000000):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000, nrows=100000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
             #df_negative = df_chunk[df_chunk[label].isna()]
@@ -263,7 +264,7 @@ class RecSysUtility:
                                           early_stopping_rounds=30,
                                           feval=self.compute_rce_xgb, 
                                           dtrain=xgb.DMatrix(X_train, y_train),
-                                          evals=[(xgb.DMatrix(X_val, y_val),"Valid")])
+                                          evals=[(xgb.DMatrix(X_train, y_train),"Train"),(xgb.DMatrix(X_val, y_val),"Valid")])
                     print('Training finito')
                     first_file = False
                     xgb_params.update({
@@ -278,7 +279,7 @@ class RecSysUtility:
                                             early_stopping_rounds=30,  
                                             feval=self.compute_rce_xgb,
                                             dtrain=xgb.DMatrix(X_train, y_train),
-                                            evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
+                                            evals=[(xgb.DMatrix(X_train, y_train),"Valid"),(xgb.DMatrix(X_val, y_val),"Valid")],
                                             xgb_model = estimator)
 
 
