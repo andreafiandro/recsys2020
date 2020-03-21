@@ -206,13 +206,11 @@ class RecSysUtility:
             }
         elif(type_gb=='xgb'):
             xgb_params = {
-                'objective':'binary:logistic', 
                 'eta':0.1, 
                 'booster':'gbtree',
                 'max_depth':7,         
                 'nthread':4,  
-                'seed':1,    
-                'eval_metric':'aucpr',
+                'seed':1
             }
 
 
@@ -261,11 +259,12 @@ class RecSysUtility:
             elif(type_gb=='xgb'):
                 if(first_file):
                     estimator = xgb.train(xgb_params, 
-                                          num_boost_round=300,
-                                          early_stopping_rounds=30, 
+                                          num_boost_round=100,
+                                          early_stopping_rounds=30,
+                                          feval=self.compute_rce_xgb, 
                                           dtrain=xgb.DMatrix(X_train, y_train),
                                           evals=[(xgb.DMatrix(X_val, y_val),"Valid")])
-
+                    print('Training finito')
                     first_file = False
                     xgb_params.update({
                     'updater':'refresh',
@@ -275,8 +274,9 @@ class RecSysUtility:
                      })
                 else:
                     estimator = xgb.train(xgb_params,
-                                            num_boost_round=200,
+                                            num_boost_round=100,
                                             early_stopping_rounds=30,  
+                                            feval=self.compute_rce_xgb,
                                             dtrain=xgb.DMatrix(X_train, y_train),
                                             evals=[(xgb.DMatrix(X_val, y_val),"Valid")],
                                             xgb_model = estimator)
@@ -353,7 +353,6 @@ class RecSysUtility:
             df_chunk = self.generate_features_lgb(df_chunk)
             df_chunk = self.encode_string_features(df_chunk)
             if(first_file):
-                df_training = df_chunk.copy()
                 first_file = False
             else:
                 df_training = pd.concat([df_training, df_chunk], axis=0, ignore_index=True)
@@ -589,6 +588,13 @@ class RecSysUtility:
         data_ctr = self.calculate_ctr(gt)
         strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
         return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
+
+    def compute_rce_xgb(self, pred, gt):
+        gt = np.asarray(gt.get_label(), dtype=np.int64)
+        cross_entropy = log_loss(gt, pred, labels=[0,1])
+        data_ctr = self.calculate_ctr(gt)
+        strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))], labels=[0,1])
+        return 'RCE', (1.0 - cross_entropy/strawman_cross_entropy)*100.0
 
     def print_and_log(self, to_print):
         logging.info(to_print)
