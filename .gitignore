@@ -1,5 +1,8 @@
 *.csv
 *.txt
+*.dat
+*.log
+*.json
 funzioni_di_prova.py
 __pycache__
 .ipynb_checkpoints
