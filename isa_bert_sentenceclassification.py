@@ -1,4 +1,4 @@
-# DON'T RUN 
+# DON'T RUN, IT IS A DRAFT
 
 # Sequence Classification with BERT for recsys2020 features
 # Huggingface library
@@ -18,11 +18,13 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # Load pre-trained model tokenizer (vocabulary)
-tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+# Tokenization phase is not necessary
+# because we have already the token IDS
+# -> tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased') NOT NECESSARY
 
 from __future__ import print_function, division
 
-import torch
+# COMM import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
@@ -41,19 +43,19 @@ import torch.nn.functional as F
 # Model for Bert Layer Normalization  
 
 class BertLayerNorm(nn.Module):
-        def __init__(self, hidden_size, eps=1e-12):
-            """Construct a layernorm module in the TF style (epsilon inside the square root).
-            """
-            super(BertLayerNorm, self).__init__()
-            self.weight = nn.Parameter(torch.ones(hidden_size))
-            self.bias = nn.Parameter(torch.zeros(hidden_size))
-            self.variance_epsilon = eps
+    def __init__(self, hidden_size, eps=1e-12):
+        """Construct a layernorm module in the TF style (epsilon inside the square root).
+        """
+        super(BertLayerNorm, self).__init__()
+        self.weight = nn.Parameter(torch.ones(hidden_size))
+        self.bias = nn.Parameter(torch.zeros(hidden_size))
+        self.variance_epsilon = eps
 
-        def forward(self, x):
-            u = x.mean(-1, keepdim=True)
-            s = (x - u).pow(2).mean(-1, keepdim=True)
-            x = (x - u) / torch.sqrt(s + self.variance_epsilon)
-            return self.weight * x + self.bias
+    def forward(self, x):
+        u = x.mean(-1, keepdim=True)
+        s = (x - u).pow(2).mean(-1, keepdim=True)
+        x = (x - u) / torch.sqrt(s + self.variance_epsilon)
+        return self.weight * x + self.bias
 
 # Model for BertForSequenceClassification       
 
@@ -169,18 +171,58 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     return model
 
 
+# CHECK IF MAX SEQ LENGTH IS CORRECT 
+max_seq_length = 512
+
+# Bring the dataset to a useful format
+
+class text_dataset(Dataset):
+    def __init__(self,x_y_list, transform=None):
+        
+        self.x_y_list = x_y_list
+        self.transform = transform
+        
+    def __getitem__(self,index):
+        
+        # Tokenization phase is not necessary
+        # because we have already the token IDS
+        # -> tokenized_review = tokenizer.tokenize(self.x_y_list[0][index]) NOT NECESSARY
+        
+        if len(tokenized_review) > max_seq_length:
+            tokenized_review = tokenized_review[:max_seq_length]
+            
+        ids_review  = tokenizer.convert_tokens_to_ids(tokenized_review)
+
+        padding = [0] * (max_seq_length - len(ids_review))
+        
+        ids_review += padding
+        
+        assert len(ids_review) == max_seq_length
+        
+        #print(ids_review)
+        ids_review = torch.tensor(ids_review)
+        
+        sentiment = self.x_y_list[1][index] # color        
+        list_of_labels = [torch.from_numpy(np.array(sentiment))]
+        
+        
+        return ids_review, list_of_labels[0]
+    
+    def __len__(self):
+        return len(self.x_y_list[0])
+
 # Reading the dataset
 
 import pandas as pd
 from pytorch_pretrained_bert import BertConfig
 
-dat = pd.read_csv('dataset_example_chunk_recsys2020.csv')
+dat = pd.read_csv('training_chunk_2.csv')
 dat.head()
 
 config = BertConfig(vocab_size_or_config_json_file=32000, hidden_size=768,
         num_hidden_layers=12, num_attention_heads=12, intermediate_size=3072)
 
-num_labels = 1
+num_labels = 2
 model = BertForSequenceClassification(num_labels)
 
 # Tokenization phase is not necessary
@@ -189,16 +231,17 @@ model = BertForSequenceClassification(num_labels)
 # -> tokenizer.convert_tokens_to_ids NOT NECESSARY
 
 # Convert inputs to PyTorch tensors
+
 tokens_tensor = torch.tensor(list_sequences_token_ids)
 logits = model(tokens_tensor)
 
-import torch.nn.functional as F
+# COMM import torch.nn.functional as F
 
 F.softmax(logits,dim=1)
 
 from sklearn.model_selection import train_test_split
-X = dat['review']
-y = dat['sentiment']
+X = dat['Text tokens']
+y = dat['Tweet type']
 
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=42)
@@ -207,6 +250,10 @@ X_test = X_test.values.tolist()
 
 y_train = pd.get_dummies(y_train).values.tolist()
 y_test = pd.get_dummies(y_test).values.tolist()
+
+
+
+# Choose a batch size consider the chunck size
 
 batch_size = 16
 
@@ -223,5 +270,8 @@ dataloaders_dict = {'train': torch.utils.data.DataLoader(training_dataset, batch
 dataset_sizes = {'train':len(train_lists[0]),
                 'val':len(test_lists[0])}
 
+# Choose GPU if is available, otherwise cpu
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(device)
+
+model = train_model(model, criterion, optimizer, scheduler, num_epochs=25)
