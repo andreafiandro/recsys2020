@@ -325,11 +325,11 @@ model_ft1 = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
 ####################################################
 
 # Convert inputs to PyTorch tensors
-tokens_tensor = torch.tensor(list_sequences_token_ids)
-logits = model(tokens_tensor)
+tokens_tensor = torch.tensor(list_sequences_token_ids) # forse questo non serve perchè era solo un esempio
+logits = model(tokens_tensor) # forse questo non serve perchè era solo un esempio
 
 # COMM import torch.nn.functional as F
 
-F.softmax(logits,dim=1)
+F.softmax(logits,dim=1)  #questo sicuro da qualche parte lo devo mettere 
 
 
