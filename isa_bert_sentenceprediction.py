@@ -1,17 +1,65 @@
 # DON'T RUN 
 
-# Sequence Classification with BERT
+# Sequence Classification with BERT for recsys2020 features
 # Huggingface library
 # https://huggingface.co/transformers/
 # Also taking ispiration from
 # https://towardsdatascience.com/bert-classifier-just-another-pytorch-model-881b3cf05784
 # https://github.com/sugi-chan/custom_bert_pipeline/blob/master/bert_pipeline.ipynb
+# Dataset Folder
+# https://istitutoboella-my.sharepoint.com/:f:/g/personal/giuseppe_rizzo_linksfoundation_com/EibesId87KJIrUJ252lS_CQBsv0hPG0T-O1bortw4zTIhQ?e=5%3aByodq4&at=9 
 
-# Model for BertForSequenceClassification
+
+import torch
+from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
+
+# OPTIONAL: if you want to have more information on what's happening, activate the logger as follows
+import logging
+logging.basicConfig(level=logging.INFO)
+
+# Load pre-trained model tokenizer (vocabulary)
+tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+
+from __future__ import print_function, division
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.optim import lr_scheduler
+import numpy as np
+import torchvision
+from torchvision import datasets, models, transforms
+import matplotlib.pyplot as plt
+import time
+import os
+import copy
+from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from random import randrange
+import torch.nn.functional as F
+
+# Model for Bert Layer Normalization  
+
+class BertLayerNorm(nn.Module):
+        def __init__(self, hidden_size, eps=1e-12):
+            """Construct a layernorm module in the TF style (epsilon inside the square root).
+            """
+            super(BertLayerNorm, self).__init__()
+            self.weight = nn.Parameter(torch.ones(hidden_size))
+            self.bias = nn.Parameter(torch.zeros(hidden_size))
+            self.variance_epsilon = eps
+
+        def forward(self, x):
+            u = x.mean(-1, keepdim=True)
+            s = (x - u).pow(2).mean(-1, keepdim=True)
+            x = (x - u) / torch.sqrt(s + self.variance_epsilon)
+            return self.weight * x + self.bias
+
+# Model for BertForSequenceClassification       
 
 class BertForSequenceClassification(nn.Module):
   
-    def __init__(self, num_labels=1):
+    def __init__(self, num_labels=2):
         super(BertForSequenceClassification, self).__init__()
         self.num_labels = num_labels
         self.bert = BertModel.from_pretrained('bert-base-multilingual-cased')
@@ -23,9 +71,15 @@ class BertForSequenceClassification(nn.Module):
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
-
-      
         return logits
+    
+    def freeze_bert_encoder(self):
+        for param in self.bert.parameters():
+            param.requires_grad = False
+    
+    def unfreeze_bert_encoder(self):
+        for param in self.bert.parameters():
+            param.requires_grad = True
 
 # Train model function - Return the trained model
 
@@ -118,12 +172,56 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 # Reading the dataset
 
 import pandas as pd
+from pytorch_pretrained_bert import BertConfig
 
 dat = pd.read_csv('dataset_example_chunk_recsys2020.csv')
 dat.head()
+
+config = BertConfig(vocab_size_or_config_json_file=32000, hidden_size=768,
+        num_hidden_layers=12, num_attention_heads=12, intermediate_size=3072)
+
+num_labels = 1
+model = BertForSequenceClassification(num_labels)
 
 # Tokenization phase is not necessary
 # because we have already the token IDS
 # -> tokenizer.tokenize  NOT NECESSARY
 # -> tokenizer.convert_tokens_to_ids NOT NECESSARY
 
+# Convert inputs to PyTorch tensors
+tokens_tensor = torch.tensor(list_sequences_token_ids)
+logits = model(tokens_tensor)
+
+import torch.nn.functional as F
+
+F.softmax(logits,dim=1)
+
+from sklearn.model_selection import train_test_split
+X = dat['review']
+y = dat['sentiment']
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=42)
+X_train = X_train.values.tolist()
+X_test = X_test.values.tolist()
+
+y_train = pd.get_dummies(y_train).values.tolist()
+y_test = pd.get_dummies(y_test).values.tolist()
+
+batch_size = 16
+
+train_lists = [X_train, y_train]
+test_lists = [X_test, y_test]
+
+training_dataset = text_dataset(x_y_list = train_lists )
+
+test_dataset = text_dataset(x_y_list = test_lists )
+
+dataloaders_dict = {'train': torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=0),
+                   'val':torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+                   }
+dataset_sizes = {'train':len(train_lists[0]),
+                'val':len(test_lists[0])}
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
