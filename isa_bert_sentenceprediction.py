@@ -1,6 +1,9 @@
 # Sequence Classification with BERT
 # Huggingface library
-#
+# https://huggingface.co/transformers/
+# Also taking ispiration from
+# https://towardsdatascience.com/bert-classifier-just-another-pytorch-model-881b3cf05784
+# https://github.com/sugi-chan/custom_bert_pipeline/blob/master/bert_pipeline.ipynb
 
 class BertForSequenceClassification(nn.Module):
   
