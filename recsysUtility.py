@@ -168,7 +168,7 @@ class RecSysUtility:
                 model = pickle.load(open('model_xgb_{}.dat'.format(label), "rb"))
 
                 print('Start Prediction')
-                df_out['Prediction'] = model.predict(xgb.DMatrix(val))
+                df_out['Prediction'] = model.predict(xgb.DMatrix(val), ntree_limit=model.best_ntree_limit)
             df_out.to_csv('./{}/prediction_{}.csv'.format(label, id), index=False, header=False)
             id += 1
             del val, df_out
@@ -185,7 +185,7 @@ class RecSysUtility:
         """
             This function is used to train a gradient boosting model by means of incremental learning.
             INPUT:
-                - label -> the label for the training model (Like, Retweet, Comment or Reply)
+                - label -> the label for the training model (Like, Retweet, Comment or Reply) 
             OUTPUT:
                 - trained lgbm model that will be also written on the disk
         """      
@@ -218,7 +218,7 @@ class RecSysUtility:
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
         first_file = True
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000, nrows=100000):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
             #df_negative = df_chunk[df_chunk[label].isna()]
@@ -262,7 +262,8 @@ class RecSysUtility:
                     estimator = xgb.train(xgb_params, 
                                           num_boost_round=100,
                                           early_stopping_rounds=30,
-                                          feval=self.compute_rce_xgb, 
+                                          feval=self.compute_rce_xgb,
+					                      maximize=True, 
                                           dtrain=xgb.DMatrix(X_train, y_train),
                                           evals=[(xgb.DMatrix(X_train, y_train),"Train"),(xgb.DMatrix(X_val, y_val),"Valid")])
                     print('Training finito')
@@ -277,15 +278,18 @@ class RecSysUtility:
                     estimator = xgb.train(xgb_params,
                                             num_boost_round=100,
                                             early_stopping_rounds=30,  
-                                            feval=self.compute_rce_xgb,
+                                            maximize=True,
+					    feval=self.compute_rce_xgb,
                                             dtrain=xgb.DMatrix(X_train, y_train),
                                             evals=[(xgb.DMatrix(X_train, y_train),"Valid"),(xgb.DMatrix(X_val, y_val),"Valid")],
                                             xgb_model = estimator)
 
 
             y_pred = estimator.predict(xgb.DMatrix(X_val))
-            prauc = self.compute_prauc(y_val, y_pred)
-            rce = self.compute_rce(y_val, y_pred)
+            print('Prediction')
+            print(y_pred)
+            prauc = self.compute_prauc(y_pred, y_val)
+            rce = self.compute_rce(y_pred, y_val)
 
             self.print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
             #lgb.plot_importance(lgb_estimator, importance_type='split', max_num_features=50)
@@ -570,28 +574,40 @@ class RecSysUtility:
 
     """
     ------------------------------------------------------------------------------------------
+    FEATURE GENERATION
+    ------------------------------------------------------------------------------------------
+    """
+
+
+
+
+    """
+    ------------------------------------------------------------------------------------------
     OFFICIAL FUNCTIONS FOR EVALUATE THE SCORE
     ------------------------------------------------------------------------------------------
     """
 
-    def compute_prauc(self, gt, pred):
+    def compute_prauc(self, pred, gt):
         prec, recall, thresh = precision_recall_curve(gt, pred)
         prauc = auc(recall, prec)
         return prauc
 
-    def calculate_ctr(self, gt):
+    def calculate_ctr(self,gt):
         positive = len([x for x in gt if x == 1])
         ctr = positive/float(len(gt))
         return ctr
 
-    def compute_rce(self, gt, pred):
-        cross_entropy = log_loss(gt, pred)
+    def compute_rce(self, pred, gt):
+        pred = np.asarray(pred, dtype=np.float64)
+        cross_entropy = log_loss(gt, pred, labels=[0,1])
         data_ctr = self.calculate_ctr(gt)
         strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
         return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
 
+
     def compute_rce_xgb(self, pred, gt):
         gt = np.asarray(gt.get_label(), dtype=np.int64)
+        pred = np.asarray(pred, dtype=np.float64)
         cross_entropy = log_loss(gt, pred, labels=[0,1])
         data_ctr = self.calculate_ctr(gt)
         strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))], labels=[0,1])
