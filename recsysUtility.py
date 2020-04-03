@@ -578,6 +578,58 @@ class RecSysUtility:
     ------------------------------------------------------------------------------------------
     """
 
+    def generate_user_features(self, output_file='user_features.csv'):
+        firstFile = True
+        tot_lines = 0
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=3000000):
+            print('Analizzo il chunk..')
+            df_training = self.process_chunk_tsv(df_chunk)
+            df_count_like = df_training[['User_id_engaging','Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']]
+            df_count_like = df_count_like[(~df_count_like['Like_engagement_timestamp'].isnull()) | 
+                                        (~df_count_like['Reply_engagement_timestamp'].isnull()) |
+                                        (~df_count_like['Retweet_engagement_timestamp'].isnull()) |
+                                        (~df_count_like['Retweet_with_comment_engagement_timestamp'].isnull())]
+            df_count_like.loc[:,'Reply_engagement_timestamp'] = df_count_like.loc[:,'Reply_engagement_timestamp'].apply(lambda x: 0 if pd.isna(x) else 1)
+            df_count_like.loc[:,'Retweet_engagement_timestamp'] = df_count_like.loc[:,'Retweet_engagement_timestamp'].apply(lambda x: 0 if pd.isna(x) else 1)
+            df_count_like.loc[:,'Retweet_with_comment_engagement_timestamp'] = df_count_like.loc[:,'Retweet_with_comment_engagement_timestamp'].apply(lambda x: 0 if pd.isna(x) else 1)
+            df_count_like.loc[:,'Like_engagement_timestamp'] = df_count_like.loc[:,'Like_engagement_timestamp'].apply(lambda x: 0 if pd.isna(x) else 1)
+            df_count_like = df_count_like.groupby('User_id_engaging').agg({ 'Reply_engagement_timestamp': 'sum',
+                                                                            'Retweet_engagement_timestamp': 'sum',
+                                                                            'Retweet_with_comment_engagement_timestamp': 'sum',
+                                                                            'Like_engagement_timestamp': 'sum'
+                                                                        }).reset_index()
+            df_count_like = df_count_like.rename({'Like_engagement_timestamp': 'Tot_like',
+                                      'Reply_engagement_timestamp': 'Tot_reply',
+                                     'Retweet_engagement_timestamp': 'Tot_retweet',
+                                     'Retweet_with_comment_engagement_timestamp': 'Tot_comment'}, axis='columns')
+            df_count_like.loc[:,'Tot_action'] = df_count_like.loc[:,'Tot_like'] + df_count_like.loc[:,'Tot_reply'] + df_count_like.loc[:,'Tot_retweet'] + df_count_like.loc[:,'Tot_comment']
+            tot_lines += df_count_like.shape[0]
+            print('Ci sono {} utenti'.format(df_count_like.shape[0]))
+            print('Le righe totali del file sono {}'.format(tot_lines))
+            if(firstFile):
+                df_count_like.to_csv(output_file,  index=False)
+                firstFile = False
+            else:
+                df_count_like.to_csv(output_file, mode='a', header=False,  index=False)
+        
+        del df_count_like
+        del df_chunk
+        gc.collect()
+
+        print('GroupBy finale')
+        df_output = pd.read_csv(output_file)
+        dim_iniziale = df_output.shape[0]
+        df_output = df_output.groupby('User_id_engaging').agg({ 'Tot_reply': 'sum',
+                                                                'Tot_retweet': 'sum',
+                                                                'Tot_comment': 'sum',
+                                                                'Tot_like': 'sum',
+                                                                'Tot_action': 'sum'
+                                                            }).reset_index()
+        print('User features ha #{} righe -- Dopo groupby #{} righe'.format(dim_iniziale, df_output.shape[0]))
+        df_output.to_csv(output_file.replace('.csv', '') + '_final.csv',  index=False)                                                  
+
+        return
+        
 
 
 
