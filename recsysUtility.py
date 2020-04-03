@@ -189,7 +189,7 @@ class RecSysUtility:
             OUTPUT:
                 - trained lgbm model that will be also written on the disk
         """      
-        label = label + '_engagement_timestamp'
+        label_col = label + '_engagement_timestamp'
         estimator = None
         if(type_gb=='lgbm'):
             lgbm_params = {
@@ -218,15 +218,16 @@ class RecSysUtility:
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
         first_file = True
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000000):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=50000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
             #df_negative = df_chunk[df_chunk[label].isna()]
             #df_positive = df_chunk[~df_chunk[label].isna()]
             #n_positive = df_chunk[label].isna()
-            #print('Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+            print('Positive sample: #{} / Negative sample: #{}'.format(df_chunk[~df_chunk[label_col].isnull()].shape[0], df_chunk[df_chunk[label_col].isnull()].shape[0]))
             #df_negative = df_negative.sample(n=df_positive.shape[0], random_state=1)
             #print('RESAMPLE -- Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+           
             print('Starting feature engineering...')
             #df_chunk = pd.concat([df_positive, df_negative], axis=0, ignore_index=True)
             df_chunk = self.generate_features_lgb(df_chunk)
@@ -239,10 +240,10 @@ class RecSysUtility:
             print('Validation size: {}'.format(df_val.shape[0]))
 
             print('Removing column not useful from training')
-            y_train = df_train[label].fillna(0)
+            y_train = df_train[label_col].fillna(0)
             y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
             X_train = df_train.drop(not_useful_cols, axis=1)
-            y_val = df_val[label].fillna(0)
+            y_val = df_val[label_col].fillna(0)
             y_val = y_val.apply(lambda x : 0 if x == 0 else 1)
             X_val = df_val.drop(not_useful_cols, axis=1)
             print(X_val.head())
@@ -316,6 +317,7 @@ class RecSysUtility:
         elif(type_gb=='xgb'):
             pickle.dump(estimator, open('model_xgb_{}.dat'.format(label), "wb"))
             ax = xgb.plot_importance(estimator)
+            ax.figure.set_size_inches(10,8)
             ax.figure.savefig('importance_{}.png'.format(label))
 
         return estimator
@@ -444,16 +446,16 @@ class RecSysUtility:
         return lgb_estimator
 
     def save_dictionaries_on_file(self):
-
-        os.remove('lang.json')
-        f = open("lang.json","w")
-        f.write(json.dumps(self.lang_dic))
-        f.close()
-
-        os.remove('tweet_type.json')
-        f = open("tweet_type.json","w")
-        f.write(json.dumps(self.tweet_type_dic))
-        f.close()
+        if(os.path.exists('lang.json')):
+            os.remove('lang.json')
+            f = open("lang.json","w")
+            f.write(json.dumps(self.lang_dic))
+            f.close()
+        if(os.path.exists('tweet_type.json')):
+            os.remove('tweet_type.json')
+            f = open("tweet_type.json","w")
+            f.write(json.dumps(self.tweet_type_dic))
+            f.close()
         return
 
     def scalable_xgb(self, label):
@@ -504,7 +506,7 @@ class RecSysUtility:
 
         
         
-    def generate_features_lgb(self, df):
+    def generate_features_lgb(self, df, user_features_file='./user_features_final.csv'):
         """
         Function to generate the features included in the gradient boosting model.
         """
@@ -521,6 +523,27 @@ class RecSysUtility:
         df['Account_creation_time'] = df['Account_creation_time'].apply(lambda x: current_timestamp - x)
         df['Account_creation_time_engaging'] = df['Account_creation_time_engaging'].apply(lambda x: current_timestamp - x)
         
+        # Runtime Features
+        df.loc[:,"follow_ratio_engaging"] = df.loc[:,'Following_count_engaging'] / df.loc[:,'Follower_count_engaging']
+        df.loc[:,'Elapsed_time_author'] = df['Timestamp'] - df['Account_creation_time']
+        df.loc[:,'Elapsed_time_user'] = df['Timestamp'] - df['Account_creation_time_engaging']
+
+        # Add user features
+        print('Adding the user features from {}'.format(user_features_file))
+        df_input = pd.read_csv(user_features_file)
+        df = df.merge(df_input, how='left', left_on='User_id_engaging', right_on='User_id_engaging')
+        
+        # Create other features
+        df.loc[:,'ratio_reply'] = df.loc[:,'Tot_reply'] / df.loc[:,'Tot_action']
+        df.loc[:,'ratio_retweet'] = df.loc[:,'Tot_retweet'] / df.loc[:,'Tot_action']
+        df.loc[:,'ratio_comment'] = df.loc[:,'Tot_comment'] / df.loc[:,'Tot_action']
+        df.loc[:,'ratio_like'] = df.loc[:,'Tot_like'] / df.loc[:,'Tot_action']
+
+        # Riempio i valori NaN con -1 per dare un informazione in più al gradient boosting
+        col_to_fill = ['Tot_reply', 'Tot_retweet', 'Tot_comment', 'Tot_like', 'Tot_action', 'ratio_reply', 'ratio_retweet', 'ratio_comment', 'ratio_like']
+        df[col_to_fill] = df[col_to_fill].fillna(value=-1)
+
+
         return df
 
     def encode_val_string_features(self, df):
@@ -579,9 +602,12 @@ class RecSysUtility:
     """
 
     def generate_user_features(self, output_file='user_features.csv'):
+        """
+        Funzione utile per generare un file che contiene | User_id | Tot_like | ...
+        """
         firstFile = True
         tot_lines = 0
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=3000000):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=1000, nrows=10000):
             print('Analizzo il chunk..')
             df_training = self.process_chunk_tsv(df_chunk)
             df_count_like = df_training[['User_id_engaging','Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']]
@@ -629,6 +655,18 @@ class RecSysUtility:
         df_output.to_csv(output_file.replace('.csv', '') + '_final.csv',  index=False)                                                  
 
         return
+    
+
+    def dask_group_by(self, output_file):
+        dd_input = dd.read_csv(output_file)
+        dd_input = dd_input.agg({   'Tot_reply': 'sum',
+                                    'Tot_retweet': 'sum',
+                                    'Tot_comment': 'sum',
+                                    'Tot_like': 'sum',
+                                    'Tot_action': 'sum'}).compute()
+        dd_input.to_csv(output_file.replace('.csv', '') + '_final.csv',  index=False)  
+
+    
         
 
 

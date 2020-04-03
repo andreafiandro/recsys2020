@@ -1,9 +1,12 @@
 from recsysUtility import RecSysUtility
 import pandas as pd
 
-rsUtils = RecSysUtility('/home/andreafiandro/NAS/training.tsv')
+rsUtils = RecSysUtility('//fmnas/Dataset/training.tsv')
 
 #model = rsUtils.incremental_gradient_boosting('Reply')
 #model = rsUtils.incremental_gradient_boosting('Retweet')
 #model = rsUtils.incremental_gradient_boosting('Retweet_with_comment')
-rsUtils.create_chunk_csv(output_dir='/home/andreafiandro/NAS')
+rsUtils.incremental_gradient_boosting('Like')
+rsUtils.incremental_gradient_boosting('Retweet')
+rsUtils.incremental_gradient_boosting('Retweet_with_comment')
+rsUtils.incremental_gradient_boosting('Reply')
