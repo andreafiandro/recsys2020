@@ -218,7 +218,7 @@ class RecSysUtility:
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
         first_file = True
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=50000000):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=15000000):
             print('Processing the chunk...')
             df_chunk = self.process_chunk_tsv(df_chunk)
             #df_negative = df_chunk[df_chunk[label].isna()]
@@ -524,7 +524,8 @@ class RecSysUtility:
         df['Account_creation_time_engaging'] = df['Account_creation_time_engaging'].apply(lambda x: current_timestamp - x)
         
         # Runtime Features
-        df.loc[:,"follow_ratio_engaging"] = df.loc[:,'Following_count_engaging'] / df.loc[:,'Follower_count_engaging']
+        df.loc[:,"follow_ratio_author"] = df.loc[:,'Following_count'] / df.loc[:,'Follower_count']
+        df.loc[:,"follow_ratio_user"] = df.loc[:,'Following_count_engaging'] / df.loc[:,'Follower_count_engaging']
         df.loc[:,'Elapsed_time_author'] = df['Timestamp'] - df['Account_creation_time']
         df.loc[:,'Elapsed_time_user'] = df['Timestamp'] - df['Account_creation_time_engaging']
 
