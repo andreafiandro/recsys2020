@@ -1,11 +1,22 @@
 # DON'T RUN, IT IS A DRAFT
 
+# RecSys2020 Challenge
+# https://recsys-twitter.com/
+
 # Sequence Classification with BERT for recsys2020 features
 # Huggingface library
 # https://huggingface.co/transformers/
+
+# RCE Reverse Cross Entropy
+# https://github.com/P2333/Reverse-Cross-Entropy
+
 # Also taking inspiration from
 # https://towardsdatascience.com/bert-classifier-just-another-pytorch-model-881b3cf05784
 # https://github.com/sugi-chan/custom_bert_pipeline/blob/master/bert_pipeline.ipynb
+
+# The dataset is available after login recsys2020 challenge at
+# https://recsys-twitter.com/data/show-downloads 
+
 # !pip3 install pytorch_pretrained_bert for colab notebook
 
 import torch
