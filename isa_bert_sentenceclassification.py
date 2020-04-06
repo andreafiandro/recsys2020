@@ -3,12 +3,10 @@
 # Sequence Classification with BERT for recsys2020 features
 # Huggingface library
 # https://huggingface.co/transformers/
-# Also taking ispiration from
+# Also taking inspiration from
 # https://towardsdatascience.com/bert-classifier-just-another-pytorch-model-881b3cf05784
 # https://github.com/sugi-chan/custom_bert_pipeline/blob/master/bert_pipeline.ipynb
-# Dataset Folder
-# https://istitutoboella-my.sharepoint.com/:f:/g/personal/giuseppe_rizzo_linksfoundation_com/EibesId87KJIrUJ252lS_CQBsv0hPG0T-O1bortw4zTIhQ?e=5%3aByodq4&at=9 
-
+# !pip3 install pytorch_pretrained_bert for colab notebook
 
 import torch
 from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
@@ -84,6 +82,15 @@ class BertForSequenceClassification(nn.Module):
 # Train model function - Return the trained model
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+
+# Warning
+
+# Prior to PyTorch 1.1.0, the learning rate scheduler was expected to be called before the optimizer’s update; 1.1.0 
+# changed this behavior in a BC-breaking way. If you use the learning rate scheduler (calling scheduler.step()) before 
+# the optimizer’s update (calling optimizer.step()), this will skip the first value of the learning rate schedule. 
+# If you are unable to reproduce results after upgrading to PyTorch 1.1.0, please check if you are calling 
+# scheduler.step() at the wrong time.
+
     since = time.time()
     print('starting')
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -96,7 +103,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                scheduler.step()
+                #scheduler.step() -> DUE TO THE WARNING
                 model.train()  # Set model to training mode
             else:
                 model.eval()   # Set model to evaluate mode
@@ -109,7 +116,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # Iterate over data.
             for inputs, output in dataloaders_dict[phase]:
                 #inputs = inputs
-                #print(len(inputs),type(inputs),inputs)
+                print(len(inputs),type(inputs),inputs)
                 #inputs = torch.from_numpy(np.array(inputs)).to(device) 
                 inputs = inputs.to(device) 
 
@@ -132,7 +139,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                         
                         loss.backward()
                         optimizer.step()
-
+                        scheduler.step()  #-> DUE TO THE WARNING
                 # statistics
                 running_loss += loss.item() * inputs.size(0)
 
@@ -190,7 +197,14 @@ class text_dataset(Dataset):
 
         # -> tokenized_review = tokenizer.tokenize(self.x_y_list[0][index]) NOT NECESSARY
         # so:
+        #print(self.x_y_list)
+        #print(self.x_y_list[0])
+        #print(index)
+        #print(self.x_y_list[0][index])
         tokenized_review = self.x_y_list[0][index]
+        tokenized_review = tokenized_review.split("|")
+        
+        #print(tokenized_review)
 
         if len(tokenized_review) > max_seq_length:
             tokenized_review = tokenized_review[:max_seq_length]
@@ -199,20 +213,28 @@ class text_dataset(Dataset):
         # so:
 
         ids_review  = tokenized_review
+        i = 0
+        for x in ids_review:
+          ids_review[i]=int(ids_review[i])
+          i = i + 1
 
         padding = [0] * (max_seq_length - len(ids_review))
         
         ids_review += padding
-        
+        #print(ids_review)
+
         assert len(ids_review) == max_seq_length
         
-        print(ids_review)
+     
         ids_review = torch.tensor(ids_review)
-        
+        #print(ids_review)
+
         output = self.x_y_list[1][index] # color        
         list_of_labels = [torch.from_numpy(np.array(output))]
         
-        
+        #print(ids_review)
+        #print(list_of_labels[0])
+
         return ids_review, list_of_labels[0]
     
     def __len__(self):
@@ -242,8 +264,10 @@ dat.head()
 
 # Select the columns of our interest, text tokens and tweet type
 
+# Reply engagement timestamp, Retweet engagement timestamp, Retweet with comment engagement timestamp, Like engagement timestamp
+
 X = dat['Text tokens']
-y = dat['Tweet type']
+y = dat['Reply engagement timestamp']
 
 # Split in train and test part the chunk
 
@@ -272,8 +296,12 @@ X_test = X_test.values.tolist()
 #
 # ... it is like a one hot encoding for labels
 
-y_train = pd.get_dummies(y_train).values.tolist()
-y_test = pd.get_dummies(y_test).values.tolist()
+# This is not our case. The label are not enum but are represented in the dataset
+# as empty cell if there wasn't no engagment or with a timestamp if was engagment.
+# The necessary transformations will take place through the text_data function.
+
+#y_train = pd.get_dummies(y_train).values.tolist()
+#y_test = pd.get_dummies(y_test).values.tolist()
 
 # Choose a batch size considering the chunck size
 
@@ -299,6 +327,8 @@ dataset_sizes = {'train':len(train_lists[0]),
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+# Parameter for the training
+
 lrlast = .001
 lrmain = .00001
 optim1 = optim.Adam(
@@ -311,25 +341,15 @@ optim1 = optim.Adam(
 # optim1 = optim.Adam(model.parameters(), lr=0.001)#,momentum=.9)
 # Observe that all parameters are being optimized
 optimizer_ft = optim1
+
+# This criterion will be substitute with RCE Reverse Cross Entropy
+ 
 criterion = nn.CrossEntropyLoss()
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=3, gamma=0.1)
 
-model_ft1 = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=10)
-
-
-####################################################
-"""COSE CHE NON SO DOVE METTERE, UN ATTIMO """
-####################################################
-
-# Convert inputs to PyTorch tensors
-tokens_tensor = torch.tensor(list_sequences_token_ids) # forse questo non serve perchè era solo un esempio
-logits = model(tokens_tensor) # forse questo non serve perchè era solo un esempio
-
-# COMM import torch.nn.functional as F
-
-F.softmax(logits,dim=1)  #questo sicuro da qualche parte lo devo mettere 
-
+# Start Training
+num_epochs = 10
+model_ft1 = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,num_epochs)
 
