@@ -181,6 +181,54 @@ class RecSysUtility:
         df_grouped = pd.concat(to_concat, axis=0, ignore_index=True)
         df_grouped.to_csv('prediction_{}.csv'.format(label), index=False)
 
+    def xgboost_training_memory(self, label, training_folder='/datadrive/xgb/'):
+        """
+            This function is used to train a gradient boosting model by means of incremental learning.
+            INPUT:
+                - label -> the label for the training model (Like, Retweet, Comment or Reply) 
+            OUTPUT:
+                - trained lgbm model that will be also written on the disk
+        """      
+        label_col = label + '_engagement_timestamp'
+        estimator = None
+        xgb_params = {
+            'eta':0.1, 
+            'booster':'gbtree',
+            'nthread':4,  
+            'seed':1,
+            'max_depth': 2,
+            'eval_metric' : 'aucpr'
+        }
+        training_set = xgb.DMatrix('{}training_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
+        val_set = xgb.DMatrix('{}validation_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
+        evallist = [(val_set, 'eval'), (training_set, 'train')]
+
+        print('Start training for label {}...'.format(label))
+
+        estimator = xgb.train(xgb_params,
+                                num_boost_round=10,
+                                early_stopping_rounds=3,  
+                                dtrain=training_set,
+                                evals=evallist)
+        print('Training finito')
+        test_set = xgb.DMatrix('{}test_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
+        y_pred = estimator.predict(test_set)
+        prauc = self.compute_prauc(y_pred, test_set.get_label())
+        rce = self.compute_rce(y_pred, test_set.get_label())
+
+        self.print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+            
+        print('Saving model...')
+        pickle.dump(estimator, open('model_xgb_{}.dat'.format(label), "wb"))
+
+        ax = xgb.plot_importance(estimator)
+        ax.figure.set_size_inches(10,8)
+        ax.figure.savefig('importance_{}.png'.format(label))
+
+        return estimator
+
+
+
     def incremental_gradient_boosting(self, label, type_gb='xgb'):
         """
             This function is used to train a gradient boosting model by means of incremental learning.
@@ -608,7 +656,7 @@ class RecSysUtility:
         """
         firstFile = True
         tot_lines = 0
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=1000, nrows=10000):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=6000000):
             print('Analizzo il chunk..')
             df_training = self.process_chunk_tsv(df_chunk)
             df_count_like = df_training[['User_id_engaging','Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']]
@@ -667,8 +715,65 @@ class RecSysUtility:
                                     'Tot_action': 'sum'}).compute()
         dd_input.to_csv(output_file.replace('.csv', '') + '_final.csv',  index=False)  
 
+    """
+    ------------------------------------------------------------------------------------------
+        GENERAZIONE DEI FILE DI TRAINING
+    ------------------------------------------------------------------------------------------
+    """
+
+    def generate_training_xgboost(self, training_folder='//fmnas/Dataset/xgb/', val_size=0.001, test_size=0.001, training_lines=148075238):
+
+        """
+            This function is used to generate the file ready for the xgboost training
+        """      
+
+        labels = ['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
+
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
+        n_chunk = 0
+        if(training_lines == None):
+            print('Count the total number lines')
+            training_lines = self.count_n_lines()
+            print('There are {} lines'.format(training_lines))
     
+        val_rows = int(val_size * training_lines)
+        print('Validation Rows: {}'.format(val_rows))
+        test_rows = int(test_size * training_lines)
+        print('GENERATING THE BASE FILE, WITHOUT LABEL')
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=val_rows):
+            
+            print('Processing the chunk {}...'.format(n_chunk))
+
+            if(n_chunk == 0): # Primo chunk per validation
+                file_type = 'validation'
+            elif(n_chunk == 1):
+                file_type = 'test'
+            else:
+                file_type = 'training'
+            
+            n_chunk +=1
+            df_chunk = self.process_chunk_tsv(df_chunk)
+
+            print('Starting feature engineering...')
+
+            df_chunk = self.generate_features_lgb(df_chunk)
+            df_chunk = self.encode_string_features(df_chunk)
+
+            for label in labels:
+                X_train = df_chunk.drop(not_useful_cols, axis=1)
+                y_train = df_chunk[label].fillna(0)
+                y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
+                X_train['label'] = y_train.astype(int)
+                ## Change the order of columns (First the labels)
+                cols = X_train.columns.tolist()
+                cols = cols[-1:] + cols[:-1]
+                X_train = X_train[cols]
+                X_train = X_train.fillna(0)
+                X_train = self.reduce_mem_usage(X_train)
+                X_train.to_csv('{}{}_{}.csv'.format(training_folder, file_type, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
         
+        return 
+
 
 
 
@@ -720,7 +825,7 @@ class RecSysUtility:
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         n_rows = dd_input.shape[0].compute()
         self.print_and_log('The Dataframe has {} lines'.format(n_rows))
-        return
+        return n_rows
 
     def count_n_tweets(self, isVal=False):
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
