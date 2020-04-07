@@ -14,32 +14,38 @@
 # https://towardsdatascience.com/bert-classifier-just-another-pytorch-model-881b3cf05784
 # https://github.com/sugi-chan/custom_bert_pipeline/blob/master/bert_pipeline.ipynb
 
-# The dataset is available after login recsys2020 challenge at
+# The dataset is available after login RecSys2020 Challenge at
 # https://recsys-twitter.com/data/show-downloads 
+# Some dataset preprocessing was performed by us, pay attention
 
-# !pip3 install pytorch_pretrained_bert for colab notebook
+# Add to run on colab notebook
+#!pip3 install pytorch_pretrained_bert
 
 import torch
-from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
-import logging # Optional: if you want to have more information on what's happening, activate the logger as follows
-from __future__ import print_function, division
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-import numpy as np
-import torchvision
 from torchvision import datasets, models, transforms
+import torch.nn.functional as F
+from torch.utils.data import Dataset, DataLoader
+
+from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
+
+from sklearn.model_selection import train_test_split
+import pandas as pd
+from __future__ import print_function, division
+
+import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
 import copy
-from torch.utils.data import Dataset, DataLoader
-from PIL import Image
 from random import randrange
-import torch.nn.functional as F
-from sklearn.model_selection import train_test_split
-import pandas as pd
 
+import logging # if you want to have more information on what's happening, activate the logger
+
+#import torchvision
+#from PIL import Image
 
 logging.basicConfig(level=logging.INFO)
 # Load pre-trained model tokenizer (vocabulary)
@@ -165,7 +171,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             print('{} total loss: {:.4f} '.format(phase,epoch_loss ))
             print('{} output_acc: {:.4f}'.format(
-                phase, sentiment_acc))
+                phase, output_acc))
 
             if phase == 'val' and epoch_loss < best_loss:
                 print('saving with loss of {}'.format(epoch_loss),
@@ -189,7 +195,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
 # Please, check if max sequence length is correct
 
-max_seq_length = 512
+max_seq_length = 256
 
 # Bring the dataset to a useful format
 
@@ -208,9 +214,9 @@ class text_dataset(Dataset):
 
         # -> tokenized_review = tokenizer.tokenize(self.x_y_list[0][index]) NOT NECESSARY
         # so:
-        #print(self.x_y_list)
-        #print(self.x_y_list[0])
+        #print("Index element preprocessed")
         #print(index)
+        #print("Element preprocessed")
         #print(self.x_y_list[0][index])
         tokenized_review = self.x_y_list[0][index]
         tokenized_review = tokenized_review.split("|")
@@ -232,19 +238,14 @@ class text_dataset(Dataset):
         padding = [0] * (max_seq_length - len(ids_review))
         
         ids_review += padding
-        #print(ids_review)
 
-        assert len(ids_review) == max_seq_length
-        
+        assert len(ids_review) == max_seq_length      
      
         ids_review = torch.tensor(ids_review)
-        #print(ids_review)
 
-        output = self.x_y_list[1][index] # color        
+        output = self.x_y_list[1][index] # color   
+       
         list_of_labels = [torch.from_numpy(np.array(output))]
-        
-        #print(ids_review)
-        #print(list_of_labels[0])
 
         return ids_review, list_of_labels[0]
     
@@ -270,15 +271,28 @@ model = BertForSequenceClassification(num_labels)
 
 # Open dataset training chunk and preview of content
 
-dat = pd.read_csv('isa_puppy_chunk_recsys2020.csv')
-dat.head()
+# I uploaded chunk 0 on my personal google drive (1 million of rows and 24 columns)
+# from google.colab import drive 
+# drive.mount('/content/drive')
+
+dat = pd.read_csv('/content/drive/My Drive/training_chunk_0.csv')
+
+print("DATASET SHAPE")
+print(dat.shape)
+
+print("HEAD FUNCTION")
+print(dat.head())
+
+# Fill the dataset NaN cells with 0, useful for preprocessing
+
+dat = dat.fillna(0)
 
 # Select the columns of our interest, text tokens and tweet type
 
 # Reply engagement timestamp, Retweet engagement timestamp, Retweet with comment engagement timestamp, Like engagement timestamp
 
-X = dat['Text tokens']
-y = dat['Reply engagement timestamp']
+X = dat['Text_tokens']
+y = dat['Like_engagement_timestamp'] # -> HAS TO BECOME A PARAMETER
 
 # Split in train and test part the chunk
 
@@ -288,8 +302,12 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random
 # Each string is a sequence of token ids separed by | , that have to be correctly transformed into a list 
 # (this will be done by text_data function).
 
+# X_train = X_train.reset_index(drop=True)
+# X_test = X_test.reset_index(drop=True)
+
 X_train = X_train.values.tolist()
 X_test = X_test.values.tolist()
+
 
 # pandas.get_dummies
 # Convert categorical variable into dummy/indicator variables.
@@ -307,16 +325,20 @@ X_test = X_test.values.tolist()
 #
 # ... it is like a one hot encoding for labels
 
-# This is not our case. The label are not enum but are represented in the dataset
-# as empty cell if there wasn't no engagment or with a timestamp if was engagment.
-# The necessary transformations will take place through the text_data function.
+# This is not our case. The labels are not enum but are represented in the dataset
+# as empty cell if there wasn't no engagment or with a timestamp if was an engagment.
+# The necessary transformations will take place through dat.fillna(0) and
+# transformation lamda 
 
-#y_train = pd.get_dummies(y_train).values.tolist()
-#y_test = pd.get_dummies(y_test).values.tolist()
+y_train = y_train.transform(lambda x: 1 if x>0 else 0)
+y_test = y_test.transform(lambda x: 1 if x>0 else 0)
+
+y_train = pd.get_dummies(y_train).values.tolist()
+y_test = pd.get_dummies(y_test).values.tolist()
 
 # Choose a batch size considering the chunck size
 
-batch_size = 16
+batch_size = 512
 
 # Input preparation for Dataloader function
 
@@ -358,9 +380,11 @@ optimizer_ft = optim1
 criterion = nn.CrossEntropyLoss()
 
 # Decay LR by a factor of 0.1 every 7 epochs
+
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=3, gamma=0.1)
 
 # Start Training
+
 num_epochs = 10
 model_ft1 = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,num_epochs)
 
