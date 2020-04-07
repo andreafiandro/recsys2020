@@ -193,25 +193,29 @@ class RecSysUtility:
         estimator = None
         xgb_params = {
             'eta':0.1, 
-            'booster':'gbtree',
+            'tree_method': 'gpu_hist',
+            'sampling_method': 'gradient_based',
             'nthread':4,  
             'seed':1,
-            'max_depth': 2,
-            'eval_metric' : 'aucpr'
+            'max_depth': 7,
+            'disable_default_eval_metric': 1
         }
-        training_set = xgb.DMatrix('{}training_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
-        val_set = xgb.DMatrix('{}validation_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
+        training_set = xgb.DMatrix('{}training_{}.csv?format=csv&label_column=0#dtrain.cache'.format(training_folder, label))
+        #val_set = xgb.DMatrix('{}validation_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
+        val_set = xgb.DMatrix('{}validation_{}.csv?format=csv&label_column=0'.format(training_folder, label))
         evallist = [(val_set, 'eval'), (training_set, 'train')]
 
         print('Start training for label {}...'.format(label))
 
         estimator = xgb.train(xgb_params,
-                                num_boost_round=10,
-                                early_stopping_rounds=3,  
+                                num_boost_round=30,
+                                early_stopping_rounds=10,
+                                feval=self.compute_rce_xgb,
+                                maximize=True, 
                                 dtrain=training_set,
                                 evals=evallist)
         print('Training finito')
-        test_set = xgb.DMatrix('{}test_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
+        test_set = xgb.DMatrix('{}test_{}.csv?format=csv&label_column=0'.format(training_folder, label))
         y_pred = estimator.predict(test_set)
         prauc = self.compute_prauc(y_pred, test_set.get_label())
         rce = self.compute_rce(y_pred, test_set.get_label())
