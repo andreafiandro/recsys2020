@@ -725,7 +725,7 @@ class RecSysUtility:
     ------------------------------------------------------------------------------------------
     """
 
-    def generate_training_xgboost(self, training_folder='//fmnas/Dataset/xgb/', val_size=0.001, test_size=0.001, training_lines=148075238):
+    def generate_training_xgboost(self, training_folder='/datadrive/xgb/', val_size=0.001, test_size=0.001, training_lines=100000000):
 
         """
             This function is used to generate the file ready for the xgboost training
@@ -735,25 +735,55 @@ class RecSysUtility:
 
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
+
         if(training_lines == None):
             print('Count the total number lines')
             training_lines = self.count_n_lines()
             print('There are {} lines'.format(training_lines))
-    
+
+        # Genero Validation Set
         val_rows = int(val_size * training_lines)
         print('Validation Rows: {}'.format(val_rows))
+        df_val = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=val_rows)
+        df_val = self.process_chunk_tsv(df_val)
+        print('Starting feature engineering...')
+        df_val = self.generate_features_lgb(df_val)
+        df_val = self.encode_string_features(df_val)
+        for label in labels:
+                X_train = df_val.drop(not_useful_cols, axis=1)
+                y_train = df_val[label].fillna(0)
+                y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
+                X_train['label'] = y_train.astype(int)
+                ## Change the order of columns (First the labels)
+                cols = X_train.columns.tolist()
+                cols = cols[-1:] + cols[:-1]
+                X_train = X_train[cols]
+                X_train = X_train.fillna(0)
+                X_train = self.reduce_mem_usage(X_train)
+                X_train.to_csv('{}validation_{}.csv'.format(training_folder, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
+
         test_rows = int(test_size * training_lines)
-        print('GENERATING THE BASE FILE, WITHOUT LABEL')
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=val_rows):
+        df_test = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=test_rows)
+        df_test = self.process_chunk_tsv(df_test)
+        print('Starting feature engineering...')
+        df_test = self.generate_features_lgb(df_test)
+        df_test = self.encode_string_features(df_test)
+        for label in labels:
+                X_train = df_test.drop(not_useful_cols, axis=1)
+                y_train = df_test[label].fillna(0)
+                y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
+                X_train['label'] = y_train.astype(int)
+                ## Change the order of columns (First the labels)
+                cols = X_train.columns.tolist()
+                cols = cols[-1:] + cols[:-1]
+                X_train = X_train[cols]
+                X_train = X_train.fillna(0)
+                X_train = self.reduce_mem_usage(X_train)
+                X_train.to_csv('{}test_{}.csv'.format(training_folder, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
+        
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000000, skiprows=val_rows+test_rows):
             
             print('Processing the chunk {}...'.format(n_chunk))
-
-            if(n_chunk == 0): # Primo chunk per validation
-                file_type = 'validation'
-            elif(n_chunk == 1):
-                file_type = 'test'
-            else:
-                file_type = 'training'
             
             n_chunk +=1
             df_chunk = self.process_chunk_tsv(df_chunk)
@@ -774,7 +804,7 @@ class RecSysUtility:
                 X_train = X_train[cols]
                 X_train = X_train.fillna(0)
                 X_train = self.reduce_mem_usage(X_train)
-                X_train.to_csv('{}{}_{}.csv'.format(training_folder, file_type, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
+                X_train.to_csv('{}training_{}.csv'.format(training_folder, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
         
         return 
 
