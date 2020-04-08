@@ -1,5 +1,6 @@
 import torch
 from pytorch_pretrained_bert import BertTokenizer, BertModel
+import pandas as pd
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased',
                                           do_lower_case=False)
@@ -22,9 +23,7 @@ def from_token_to_text(text_tokens, print_token=True):
     text_token_list = []
     # rimozione \n poi facciamo una lista di token string
     # infine trasformiamo le stringhe in interi (indici nel vocabolario)
-    text_tokens = text_tokens.rstrip("\n")
-    text_token_list = text_tokens.split("|")
-    text_token_list = list(map(int, text_token_list))
+    text_token_list = split_tokens(text_tokens)
     if(print_token is True):
         print("Text token list: ", text_token_list)
     # ora la funzione che converte la lista di token in una stringa
@@ -69,9 +68,7 @@ def from_text_to_sentence_embedding(text_tokens):
         - it outouts a 768 dimension numpy array
     '''
     indexed_tokens = []
-    text_tokens = text_tokens.rstrip("\n")
-    indexed_tokens = text_tokens.split("|")
-    indexed_tokens = list(map(int, indexed_tokens))
+    indexed_tokens = split_tokens(text_tokens)
     # Mark each token as belonging to sentence "1". -> classification task
     segments_ids = [1] * len(indexed_tokens)
     # Convert inputs to PyTorch tensors
@@ -87,14 +84,13 @@ def from_text_to_sentence_embedding(text_tokens):
     # Predict hidden states features for each layer
     with torch.no_grad():
         encoded_layers, _ = model(tokens_tensor, segments_tensors)
-    
     # Concatenate the tensors for all layers. We use `stack` here to
     # create a new dimension in the tensor.
     token_embeddings = torch.stack(encoded_layers, dim=0)
     # Remove dimension 1, the "batches".
     token_embeddings = torch.squeeze(token_embeddings, dim=1)
     # Swap dimensions 0 and 1.
-    token_embeddings = token_embeddings.permute(1,0,2)
+    token_embeddings = token_embeddings.permute(1, 0, 2)
 
     # !!!!! AVG and NOT CLS!!!!
     # `encoded_layers` has shape [12 x 1 x 22 x 768]
@@ -106,3 +102,39 @@ def from_text_to_sentence_embedding(text_tokens):
     sentence_embedding = torch.mean(token_vecs, dim=0)
 
     return sentence_embedding.numpy()
+
+
+def split_tokens(text_tokens):
+    indexed_tokens = []
+    text_tokens = text_tokens.rstrip("\n")
+    indexed_tokens = text_tokens.split("|")
+    indexed_tokens = list(map(int, indexed_tokens))
+    return indexed_tokens
+
+
+def map_output_features(filename):
+    '''
+        Receive training_chunk_n.csv
+        Map output features to 1 and 0 (NaN and timestamp)
+        return dataframe mapped with text tokens and output
+    '''
+    # filename = "training_chunk_0.csv"
+    dataset = pd.read_csv(filename)
+    # print(dataset.shape)
+    token_and_labels = \
+        dataset.loc[:, ['Text tokens',
+                        'Reply engagement timestamp',
+                        'Retweet engagement timestamp',
+                        'Retweet with comment engagement timestamp',
+                        'Like engagement timestamp']]
+    # print(len(token_and_labels.index))
+    for col in ['Reply engagement timestamp', 'Retweet engagement timestamp',
+                'Retweet with comment engagement timestamp',
+                'Like engagement timestamp']:
+        token_and_labels[col] = token_and_labels[col].apply(lambda x: 1 if not
+                                                            pd.isnull(x)
+                                                            else 0)
+    return token_and_labels
+
+# rimuovi cls e sep e fai padding a 128+64=192 controlla il valore usato per paddare
+# seconda fase bert e cls "simple transformer libreria"
