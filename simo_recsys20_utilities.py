@@ -4,7 +4,7 @@ import pandas as pd
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased',
                                           do_lower_case=False)
-
+PAD_MAX_LEN = 192
 
 def from_token_to_text(text_tokens, print_token=True):
     '''
@@ -138,3 +138,20 @@ def map_output_features(filename):
 
 # rimuovi cls e sep e fai padding a 128+64=192 controlla il valore usato per paddare
 # seconda fase bert e cls "simple transformer libreria"
+def clean_and_pad_192(text_tokens):
+    indexed_tokens = []
+    indexed_tokens = split_tokens(text_tokens)
+    # strip cls 101 and sep 102
+    cleaned = []
+    for token in indexed_tokens:
+        if(token == 101 or token == 102):
+            continue
+        else:
+            cleaned.append(token)
+    padded = []
+    for i in range(PAD_MAX_LEN):
+        if(i < len(cleaned)):
+            padded.append(cleaned[i])
+        else:
+            padded.append(0)
+    return padded
