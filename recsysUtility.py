@@ -808,7 +808,18 @@ class RecSysUtility:
         
         return 
 
+    def generate_dictionary(self):
 
+        n_chunk = 0
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000000):
+                    
+            print('Processing the chunk {}...'.format(n_chunk))
+            
+            n_chunk +=1
+            df_chunk = self.process_chunk_tsv(df_chunk)
+
+            print('Starting feature engineering...')
+            df_chunk = self.encode_string_features(df_chunk)
 
 
     """
