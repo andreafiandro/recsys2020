@@ -500,14 +500,17 @@ class RecSysUtility:
     def save_dictionaries_on_file(self):
         if(os.path.exists('lang.json')):
             os.remove('lang.json')
-            f = open("lang.json","w")
-            f.write(json.dumps(self.lang_dic))
-            f.close()
+
+        f = open("lang.json","w")
+        f.write(json.dumps(self.lang_dic))
+        f.close()
+
         if(os.path.exists('tweet_type.json')):
             os.remove('tweet_type.json')
-            f = open("tweet_type.json","w")
-            f.write(json.dumps(self.tweet_type_dic))
-            f.close()
+            
+        f = open("tweet_type.json","w")
+        f.write(json.dumps(self.tweet_type_dic))
+        f.close()
         return
 
     def scalable_xgb(self, label):
