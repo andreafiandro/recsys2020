@@ -188,16 +188,24 @@ class RecSysUtility:
                 - label -> the label for the training model (Like, Retweet, Comment or Reply) 
             OUTPUT:
                 - trained lgbm model that will be also written on the disk
-        """      
+        """     
+        print('Pulisco le run precedenti') 
+        if(os.path.exists('dtrain.cache')):
+            os.remove('dtrain.cache')
+        if(os.path.exists('dtrain.cache.ellpack.page')):
+            os.remove('dtrain.cache.ellpack.page')
+        if(os.path.exists('dtrain.cache.row.page')):
+            os.remove('dtrain.cache.row.page')
+
         label_col = label + '_engagement_timestamp'
         estimator = None
         xgb_params = {
             'eta':0.1, 
             'tree_method': 'gpu_hist',
             'sampling_method': 'gradient_based',
+            'objective': 'binary:logistic',
             'nthread':4,  
             'seed':1,
-            'max_depth': 7,
             'disable_default_eval_metric': 1
         }
         training_set = xgb.DMatrix('{}training_{}.csv?format=csv&label_column=0#dtrain.cache'.format(training_folder, label))
@@ -210,6 +218,7 @@ class RecSysUtility:
         estimator = xgb.train(xgb_params,
                                 num_boost_round=30,
                                 early_stopping_rounds=10,
+                                save_period=10,
                                 feval=self.compute_rce_xgb,
                                 maximize=True, 
                                 dtrain=training_set,
@@ -757,7 +766,7 @@ class RecSysUtility:
                 X_train = X_train[cols]
                 X_train = X_train.fillna(0)
                 X_train = self.reduce_mem_usage(X_train)
-                X_train.to_csv('{}{}{}.csv'.format(training_folder, file_type, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
+                X_train.to_csv('{}{}_{}.csv'.format(training_folder, file_type, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
         return
 
 
