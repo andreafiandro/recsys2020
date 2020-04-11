@@ -730,15 +730,42 @@ class RecSysUtility:
     ------------------------------------------------------------------------------------------
     """
 
-    def generate_training_xgboost(self, training_folder='/datadrive/xgb/', val_size=0.001, test_size=0.001, training_lines=100000000):
+    def generate_four_files(self, df_in, training_folder, file_type, balanced):
+        
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
+        labels = ['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
+        for label in labels:
+                X_train = df_in.drop(not_useful_cols, axis=1)
+                X_train['label'] = X_train[label].fillna(0).apply(lambda x : 0 if x == 0 else 1).astype(int)
+                if balanced:
+                    df_positive = X_train[X_train['label'] == 1]
+                    df_negative = X_train[X_train['label'] == 0]
+                    print('Positive sample: #{} / Negative sample: #{}'.format(df_positive.shape[0], df_negative.shape[0]))
+                    if (df_negative.shape[0] > df_positive.shape[0]):
+                        initial_shape = df_negative.shape[0]
+                        df_negative = df_negative.sample(n=df_positive.shape[0], random_state=99)
+                        print('Bilancio i negativi da {} a {}'.format(initial_shape, df_negative.shape[0]))
+                    elif (df_negative.shape[0] < df_positive.shape[0]):
+                        initial_shape = df_positive.shape[0]
+                        df_positive = df_positive.sample(n=df_negative.shape[0], random_state=99)
+                        print('Bilancio i positivi da {} a {}'.format(initial_shape, df_negative.shape[0]))
+                    X_train = pd.concat([df_positive, df_negative], axis=0, ignore_index=True)
+                ## Change the order of columns (First the labels)
+                cols = X_train.columns.tolist()
+                cols = cols[-1:] + cols[:-1]
+                X_train = X_train[cols]
+                X_train = X_train.fillna(0)
+                X_train = self.reduce_mem_usage(X_train)
+                X_train.to_csv('{}{}{}.csv'.format(training_folder, file_type, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
+        return
+
+
+    def generate_training_xgboost(self, training_folder='/datadrive/xgb/', val_size=0.001, test_size=0.001, training_lines=100000000, balanced=True):
 
         """
             This function is used to generate the file ready for the xgboost training
         """      
 
-        labels = ['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
-
-        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging', 'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         n_chunk = 0
 
         if(training_lines == None):
@@ -751,21 +778,11 @@ class RecSysUtility:
         print('Validation Rows: {}'.format(val_rows))
         df_val = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=val_rows)
         df_val = self.process_chunk_tsv(df_val)
+
         print('Starting feature engineering...')
         df_val = self.generate_features_lgb(df_val)
         df_val = self.encode_string_features(df_val)
-        for label in labels:
-                X_train = df_val.drop(not_useful_cols, axis=1)
-                y_train = df_val[label].fillna(0)
-                y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
-                X_train['label'] = y_train.astype(int)
-                ## Change the order of columns (First the labels)
-                cols = X_train.columns.tolist()
-                cols = cols[-1:] + cols[:-1]
-                X_train = X_train[cols]
-                X_train = X_train.fillna(0)
-                X_train = self.reduce_mem_usage(X_train)
-                X_train.to_csv('{}validation_{}.csv'.format(training_folder, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
+        self.generate_four_files(df_val, training_folder, 'validation', balanced)
 
         test_rows = int(test_size * training_lines)
         df_test = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=test_rows)
@@ -773,19 +790,8 @@ class RecSysUtility:
         print('Starting feature engineering...')
         df_test = self.generate_features_lgb(df_test)
         df_test = self.encode_string_features(df_test)
-        for label in labels:
-                X_train = df_test.drop(not_useful_cols, axis=1)
-                y_train = df_test[label].fillna(0)
-                y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
-                X_train['label'] = y_train.astype(int)
-                ## Change the order of columns (First the labels)
-                cols = X_train.columns.tolist()
-                cols = cols[-1:] + cols[:-1]
-                X_train = X_train[cols]
-                X_train = X_train.fillna(0)
-                X_train = self.reduce_mem_usage(X_train)
-                X_train.to_csv('{}test_{}.csv'.format(training_folder, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
-        
+        self.generate_four_files(df_test, training_folder, 'test', balanced)
+
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000000, skiprows=val_rows+test_rows):
             
             print('Processing the chunk {}...'.format(n_chunk))
@@ -797,32 +803,16 @@ class RecSysUtility:
 
             df_chunk = self.generate_features_lgb(df_chunk)
             df_chunk = self.encode_string_features(df_chunk)
-
-            for label in labels:
-                X_train = df_chunk.drop(not_useful_cols, axis=1)
-                y_train = df_chunk[label].fillna(0)
-                y_train = y_train.apply(lambda x : 0 if x == 0 else 1)
-                X_train['label'] = y_train.astype(int)
-                ## Change the order of columns (First the labels)
-                cols = X_train.columns.tolist()
-                cols = cols[-1:] + cols[:-1]
-                X_train = X_train[cols]
-                X_train = X_train.fillna(0)
-                X_train = self.reduce_mem_usage(X_train)
-                X_train.to_csv('{}training_{}.csv'.format(training_folder, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
-        
+            self.generate_four_files(df_chunk, training_folder, 'training', balanced)
         return 
 
     def generate_dictionary(self):
-
         n_chunk = 0
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000000):
                     
             print('Processing the chunk {}...'.format(n_chunk))
-            
             n_chunk +=1
             df_chunk = self.process_chunk_tsv(df_chunk)
-
             print('Starting feature engineering...')
             df_chunk = self.encode_string_features(df_chunk)
 
