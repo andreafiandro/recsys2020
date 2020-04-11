@@ -736,7 +736,8 @@ class RecSysUtility:
         labels = ['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
         for label in labels:
                 X_train = df_in.drop(not_useful_cols, axis=1)
-                X_train['label'] = X_train[label].fillna(0).apply(lambda x : 0 if x == 0 else 1).astype(int)
+                y_train = df_in[label].fillna(0).apply(lambda x : 0 if x == 0 else 1).astype(int)
+                X_train['label'] = y_train
                 if balanced:
                     df_positive = X_train[X_train['label'] == 1]
                     df_negative = X_train[X_train['label'] == 0]
