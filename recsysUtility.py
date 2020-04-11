@@ -513,6 +513,8 @@ class RecSysUtility:
         f.close()
         return
 
+        
+
     def scalable_xgb(self, label):
 
         # Parameters for XGBoost
@@ -824,6 +826,15 @@ class RecSysUtility:
             print('Starting feature engineering...')
             df_chunk = self.encode_string_features(df_chunk)
 
+    def evaluate_saved_model(self, label, training_folder='/datadrive/xgb/'):
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
+        model = pickle.load(open('model_xgb_{}.dat'.format(label), "rb"))
+        test_set = xgb.DMatrix('{}test_{}.csv?format=csv&label_column=0'.format(training_folder, label))
+        y_pred = model.predict(test_set, ntree_limit=model.best_ntree_limit)
+        prauc = self.compute_prauc(y_pred, test_set.get_label())
+        rce = self.compute_rce(y_pred, test_set.get_label())
+        self.print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+        return
 
     """
     ------------------------------------------------------------------------------------------
