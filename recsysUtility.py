@@ -218,7 +218,6 @@ class RecSysUtility:
         estimator = xgb.train(xgb_params,
                                 num_boost_round=30,
                                 early_stopping_rounds=10,
-                                save_period=10,
                                 feval=self.compute_rce_xgb,
                                 maximize=True, 
                                 dtrain=training_set,
