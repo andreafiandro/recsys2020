@@ -1,5 +1,3 @@
-# DON'T RUN, IT IS A DRAFT
-
 # RecSys2020 Challenge
 # https://recsys-twitter.com/
 
@@ -194,8 +192,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
 
 # Please, check if max sequence length is correct
+# Team -JP- suggests that this number could be better chosen 512 -> 256 -> 190
+# Reasoning over padding has to be done 
 
-max_seq_length = 256
+max_seq_length = 190
 
 # Bring the dataset to a useful format
 
@@ -214,10 +214,12 @@ class text_dataset(Dataset):
 
         # -> tokenized_review = tokenizer.tokenize(self.x_y_list[0][index]) NOT NECESSARY
         # so:
+
         #print("Index element preprocessed")
         #print(index)
         #print("Element preprocessed")
         #print(self.x_y_list[0][index])
+
         tokenized_review = self.x_y_list[0][index]
         tokenized_review = tokenized_review.split("|")
         
@@ -270,12 +272,9 @@ model = BertForSequenceClassification(num_labels)
 # Reading the dataset
 
 # Open dataset training chunk and preview of content
-
-# I uploaded chunk 0 on my personal google drive (1 million of rows and 24 columns)
-# from google.colab import drive 
-# drive.mount('/content/drive')
-
-dat = pd.read_csv('/content/drive/My Drive/training_chunk_0.csv')
+nrows = 1024
+batch_size = 64
+dat = pd.read_csv('/content/drive/My Drive/training_chunk_0.csv',nrows=nrows)
 
 print("DATASET SHAPE")
 print(dat.shape)
@@ -325,7 +324,7 @@ X_test = X_test.values.tolist()
 #
 # ... it is like a one hot encoding for labels
 
-# This is not our case. The labels are not enum but are represented in the dataset
+# The labels are not enum but are represented in the dataset
 # as empty cell if there wasn't no engagment or with a timestamp if was an engagment.
 # The necessary transformations will take place through dat.fillna(0) and
 # transformation lamda 
@@ -333,12 +332,24 @@ X_test = X_test.values.tolist()
 y_train = y_train.transform(lambda x: 1 if x>0 else 0)
 y_test = y_test.transform(lambda x: 1 if x>0 else 0)
 
+wg = y_train.value_counts()
+print(wg)
+
+
+print("y_train")
+
+print(y_train)
+
 y_train = pd.get_dummies(y_train).values.tolist()
 y_test = pd.get_dummies(y_test).values.tolist()
 
-# Choose a batch size considering the chunck size
+print("dummies y_train")
 
-batch_size = 512
+print(y_train)
+
+# Choose a batch size considering the chunk size
+
+
 
 # Input preparation for Dataloader function
 
@@ -376,8 +387,13 @@ optim1 = optim.Adam(
 optimizer_ft = optim1
 
 # This criterion will be substitute with RCE Reverse Cross Entropy
- 
-criterion = nn.CrossEntropyLoss()
+# https://pytorch.org/docs/stable/nn.html#crossentropyloss
+# Team -MS- recommends weighing the classes to compensate for the unbalanced dataset
+
+weights = [nrows/ wg[0],nrows/(nrows-wg[0])]
+print(weights)
+class_weights = torch.FloatTensor(weights)
+criterion = nn.CrossEntropyLoss(weight=class_weights)
 
 # Decay LR by a factor of 0.1 every 7 epochs
 
