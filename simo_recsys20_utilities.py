@@ -1,10 +1,13 @@
 import torch
+import torch.nn as nn
 from pytorch_pretrained_bert import BertTokenizer, BertModel
 import pandas as pd
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased',
                                           do_lower_case=False)
 PAD_MAX_LEN = 192
+PATH_TO_MODEL = "../BERT/big5/Models/"
+
 
 def from_token_to_text(text_tokens, print_token=True):
     '''
@@ -136,7 +139,7 @@ def map_output_features(filename):
                                                             else 0)
     return token_and_labels
 
-# rimuovi cls e sep e fai padding a 128+64=192 controlla il valore usato per paddare
+
 # seconda fase bert e cls "simple transformer libreria"
 def clean_and_pad_192(text_tokens):
     indexed_tokens = []
@@ -155,3 +158,51 @@ def clean_and_pad_192(text_tokens):
         else:
             padded.append(0)
     return padded
+
+
+def compute_big5(bc, text_tokens):
+    '''
+        before calling this funtion, in main you have to write
+        these lines of code
+        big5_scores = []
+        args = get_args_parser().parse_args(['-model_dir',
+                '../dataset/multi_cased_L-12_H-768_A-12',
+                '-port', '5555', '-port_out', '5556','-max_seq_len','NONE',
+                '-mask_cls_sep','-num_worker=1',  #removed -cpu -> runs on gpu
+                '-device_map=0', '-pooling_strategy', 'CLS_TOKEN'])
+        server = BertServer(args)
+        server.start()
+        bc = BertClient(ip='0.0.0.0')
+
+        big5_scores = sru.compute_big5(bc, example_tokens)
+    '''
+    big5_scores = []
+    tweet = from_token_to_text(text_tokens)
+    tweetEmbeddings = bc.encode([tweet])
+    result = model_O(torch.from_numpy(tweetEmbeddings[0]))
+    big5_scores.append(round(result.item(), 3))
+    result = model_C(torch.from_numpy(tweetEmbeddings[0]))
+    big5_scores.append(round(result.item(), 3))
+    result = model_E(torch.from_numpy(tweetEmbeddings[0]))
+    big5_scores.append(round(result.item(), 3))
+    result = model_A(torch.from_numpy(tweetEmbeddings[0]))
+    big5_scores.append(round(result.item(), 3))
+    result = model_N(torch.from_numpy(tweetEmbeddings[0]))
+    big5_scores.append(round(result.item(), 3))
+    return big5_scores
+
+
+def load_big5_model(trait):
+    print("model loading")
+    model = nn.Sequential(nn.Linear(768, 300),
+                          nn.ReLU(), nn.Linear(300, 1))
+    model.load_state_dict(torch.load(PATH_TO_MODEL+"SentPers_"+trait))
+    model.eval()
+    return model
+
+
+model_O = load_big5_model("O")
+model_C = load_big5_model("C")
+model_E = load_big5_model("E")
+model_A = load_big5_model("A")
+model_N = load_big5_model("N")
