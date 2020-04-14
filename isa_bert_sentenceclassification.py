@@ -7,6 +7,7 @@
 
 # RCE Reverse Cross Entropy
 # https://github.com/P2333/Reverse-Cross-Entropy
+# https://recsys-twitter.com/code/snippets 
 
 # Also taking inspiration from
 # https://towardsdatascience.com/bert-classifier-just-another-pytorch-model-881b3cf05784
@@ -19,6 +20,10 @@
 # Add to run on colab notebook
 #!pip3 install pytorch_pretrained_bert
 
+# Add to run on colab notebook with dataset uploaded on Google Drive
+#from google.colab import drive
+#drive.mount('/content/drive')
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -26,10 +31,13 @@ from torch.optim import lr_scheduler
 from torchvision import datasets, models, transforms
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+from torch.autograd import Variable
 
 from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
 
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, log_loss
+
 import pandas as pd
 from __future__ import print_function, division
 
@@ -131,6 +139,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # Iterate over data.
             for inputs, output in dataloaders_dict[phase]:
                 #inputs = inputs
+                inputs = Variable(inputs)
+                output = Variable(output)
                 print(len(inputs),type(inputs),inputs)
                 #inputs = torch.from_numpy(np.array(inputs)).to(device) 
                 inputs = inputs.to(device) 
@@ -195,7 +205,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 # Team -JP- suggests that this number could be better chosen 512 -> 256 -> 190
 # Reasoning over padding has to be done 
 
-max_seq_length = 190
+max_seq_length = 150
 
 # Bring the dataset to a useful format
 
@@ -362,7 +372,7 @@ training_dataset = text_dataset(x_y_list = train_lists )
 test_dataset = text_dataset(x_y_list = test_lists )
 
 dataloaders_dict = {'train': torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=0),
-                   'val':torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+                   'val': torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
                    }
 dataset_sizes = {'train':len(train_lists[0]),
                 'val':len(test_lists[0])}
@@ -384,16 +394,33 @@ optim1 = optim.Adam(
 
 # optim1 = optim.Adam(model.parameters(), lr=0.001)#,momentum=.9)
 # Observe that all parameters are being optimized
+
 optimizer_ft = optim1
 
-# This criterion will be substitute with RCE Reverse Cross Entropy
-# https://pytorch.org/docs/stable/nn.html#crossentropyloss
 # Team -MS- recommends weighing the classes to compensate for the unbalanced dataset
 
 weights = [nrows/ wg[0],nrows/(nrows-wg[0])]
 print(weights)
 class_weights = torch.FloatTensor(weights)
+
+# This criterion will be substitute with RCE Reverse Cross Entropy
+# https://pytorch.org/docs/stable/nn.html#crossentropyloss
+
 criterion = nn.CrossEntropyLoss(weight=class_weights)
+
+def calculate_ctr(gt):
+    positive = len([x for x in gt if x == 1])
+    ctr = positive/float(len(gt))
+    return ctr
+
+def compute_rce(pred, gt):
+    cross_entropy = log_loss(gt, pred)
+    data_ctr = calculate_ctr(gt)
+    strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
+    return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
+
+#criterion = compute_rce
+
 
 # Decay LR by a factor of 0.1 every 7 epochs
 
@@ -403,4 +430,3 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=3, gamma=0.1)
 
 num_epochs = 10
 model_ft1 = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,num_epochs)
-
