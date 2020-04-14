@@ -20,10 +20,7 @@
 # Add to run on colab notebook
 #!pip3 install pytorch_pretrained_bert
 
-# Add to run on colab notebook with dataset uploaded on Google Drive
-#from google.colab import drive
-#drive.mount('/content/drive')
-
+from __future__ import print_function, division
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -39,11 +36,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, log_loss
 
 import pandas as pd
-from __future__ import print_function, division
 
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import sys
 import os
 import copy
 from random import randrange
@@ -186,6 +183,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                       'improved over previous {}'.format(best_loss))
                 best_loss = epoch_loss
                 best_model_wts = copy.deepcopy(model.state_dict())
+		# save the best bert model parameter
+		# https://pytorch.org/tutorials/beginner/saving_loading_models.html 
                 torch.save(model.state_dict(), 'bert_model_test.pth')
 
 
@@ -269,6 +268,20 @@ class text_dataset(Dataset):
 """MAIN START HERE"""
 #####################################################################################
 
+# SYS ARG
+# sys.argv[0] = program name
+# sys.argv[1] = path to dataset
+# sys.argv[2] = column name bert tokens
+# (currently called Text_tokens)
+# sys.argv[3] = column name prediction 
+# (one among Reply_engagement_timestamp, Retweet_engagement_timestamp, Retweet_with_comment_engagement_timestamp, Like_engagement_timestamp)
+# sys.argv[4] = epochs
+# sys.argv[5] = batch size
+# Choose a batch size considering the chunk size
+# sys.argv[6] = num_workers
+# sys.argv[7] = test_size
+
+
 # Config Bert and BertForSequenceClassification Model
 
 config = BertConfig(vocab_size_or_config_json_file=32000, hidden_size=768,
@@ -282,9 +295,14 @@ model = BertForSequenceClassification(num_labels)
 # Reading the dataset
 
 # Open dataset training chunk and preview of content
+
+# nrows will be deleted in the true training phase, it is only for debugging purpose
 nrows = 1024
-batch_size = 64
-dat = pd.read_csv('/content/drive/My Drive/training_chunk_0.csv',nrows=nrows)
+num_epochs = int(sys.argv[4])
+batch_size = int(sys.argv[5])
+num_workers = int(sys.argv[6])
+test_size = float(sys.argv[7])
+dat = pd.read_csv(sys.argv[1],nrows=nrows)
 
 print("DATASET SHAPE")
 print(dat.shape)
@@ -300,12 +318,13 @@ dat = dat.fillna(0)
 
 # Reply engagement timestamp, Retweet engagement timestamp, Retweet with comment engagement timestamp, Like engagement timestamp
 
-X = dat['Text_tokens']
-y = dat['Like_engagement_timestamp'] # -> HAS TO BECOME A PARAMETER
+X = dat[sys.argv[2]] # Text_tokens
+y = dat[sys.argv[3]] # column name prediction
 
 # Split in train and test part the chunk
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42) 
+# Answer to the Ultimate Question of Life, the Universe, and Everything
 
 # In this case, due the nature of text tokens field, we will have a list of string. 
 # Each string is a sequence of token ids separed by | , that have to be correctly transformed into a list 
@@ -345,21 +364,8 @@ y_test = y_test.transform(lambda x: 1 if x>0 else 0)
 wg = y_train.value_counts()
 print(wg)
 
-
-print("y_train")
-
-print(y_train)
-
 y_train = pd.get_dummies(y_train).values.tolist()
 y_test = pd.get_dummies(y_test).values.tolist()
-
-print("dummies y_train")
-
-print(y_train)
-
-# Choose a batch size considering the chunk size
-
-
 
 # Input preparation for Dataloader function
 
@@ -371,8 +377,8 @@ test_lists = [X_test, y_test]
 training_dataset = text_dataset(x_y_list = train_lists )
 test_dataset = text_dataset(x_y_list = test_lists )
 
-dataloaders_dict = {'train': torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=0),
-                   'val': torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+dataloaders_dict = {'train': torch.utils.data.DataLoader(training_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers),
+                   'val': torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
                    }
 dataset_sizes = {'train':len(train_lists[0]),
                 'val':len(test_lists[0])}
@@ -428,5 +434,5 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=3, gamma=0.1)
 
 # Start Training
 
-num_epochs = 10
 model_ft1 = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,num_epochs)
+
