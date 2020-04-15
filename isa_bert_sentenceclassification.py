@@ -1,3 +1,8 @@
+# DON'T RUN
+# I'm aiming to solve a problem similar with this
+# https://github.com/huggingface/transformers/issues/227
+# running on HPC
+
 # RecSys2020 Challenge
 # https://recsys-twitter.com/
 
@@ -76,16 +81,20 @@ class BertLayerNorm(nn.Module):
 # Model for BertForSequenceClassification       
 
 class BertForSequenceClassification(nn.Module):
-  
+    
     def __init__(self, num_labels=2):
         super(BertForSequenceClassification, self).__init__()
         self.num_labels = num_labels
         self.bert = BertModel.from_pretrained('bert-base-multilingual-cased')
+	self.device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
-        nn.init.xavier_normal_(self.classifier.weight)
+	self.model.to(self.device)
+        nn.init.xavier_normal_(self.classifier.weight).to(self.device)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
+	input_ids=input_ids.to(self.device)
+	token_type_ids=token_type_ids.to(self.device)
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
@@ -136,11 +145,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             # Iterate over data.
             for inputs, output in dataloaders_dict[phase]:
                 #inputs = inputs
-                inputs = Variable(inputs)
-                output = Variable(output)
                 print(len(inputs),type(inputs),inputs)
-                #inputs = torch.from_numpy(np.array(inputs)).to(device) 
-                inputs = inputs.to(device) 
+                inputs = torch.from_numpy(np.array(inputs)).to(device) 
+                #inputs = inputs.to(device) 
 
                 output = output.to(device)
                 
@@ -297,7 +304,7 @@ model = BertForSequenceClassification(num_labels)
 # Open dataset training chunk and preview of content
 
 # nrows will be deleted in the true training phase, it is only for debugging purpose
-nrows = 1024
+nrows = 64
 num_epochs = int(sys.argv[4])
 batch_size = int(sys.argv[5])
 num_workers = int(sys.argv[6])
@@ -384,8 +391,10 @@ dataset_sizes = {'train':len(train_lists[0]),
                 'val':len(test_lists[0])}
 
 # Choose GPU if is available, otherwise cpu
+# Pay attention, if you use HPC load the cuda module
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(device)
 
 # Parameter for the training
 
@@ -407,25 +416,25 @@ optimizer_ft = optim1
 
 weights = [nrows/ wg[0],nrows/(nrows-wg[0])]
 print(weights)
-class_weights = torch.FloatTensor(weights)
+class_weights = torch.FloatTensor(weights).to(device) 
 
 # This criterion will be substitute with RCE Reverse Cross Entropy
 # https://pytorch.org/docs/stable/nn.html#crossentropyloss
 
 criterion = nn.CrossEntropyLoss(weight=class_weights)
 
-def calculate_ctr(gt):
-    positive = len([x for x in gt if x == 1])
-    ctr = positive/float(len(gt))
-    return ctr
-
-def compute_rce(pred, gt):
-    cross_entropy = log_loss(gt, pred)
-    data_ctr = calculate_ctr(gt)
-    strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
-    return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
-
-#criterion = compute_rce
+# def calculate_ctr(gt):
+#    positive = len([x for x in gt if x == 1])
+#    ctr = positive/float(len(gt))
+#    return ctr
+#
+# def compute_rce(pred, gt):
+#    cross_entropy = log_loss(gt, pred)
+#    data_ctr = calculate_ctr(gt)
+#    strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
+#    return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
+#
+# criterion = compute_rce
 
 
 # Decay LR by a factor of 0.1 every 7 epochs
@@ -435,4 +444,3 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=3, gamma=0.1)
 # Start Training
 
 model_ft1 = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,num_epochs)
-
