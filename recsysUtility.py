@@ -852,17 +852,21 @@ class RecSysUtility:
         return ctr
 
     def compute_rce(self, pred, gt):
-        pred = np.asarray(pred, dtype=np.float64)
-        cross_entropy = log_loss(gt, pred, labels=[0,1])
+        #pred = np.asarray(pred, dtype=np.float64)
+        pred = np.around(pred, decimals=5)
+        cross_entropy = log_loss(gt, pred)
+        #cross_entropy = log_loss(gt, pred, labels=[0,1])
         data_ctr = self.calculate_ctr(gt)
         strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))])
         return (1.0 - cross_entropy/strawman_cross_entropy)*100.0
 
 
     def compute_rce_xgb(self, pred, gt):
-        gt = np.asarray(gt.get_label(), dtype=np.int64)
-        pred = np.asarray(pred, dtype=np.float64)
-        cross_entropy = log_loss(gt, pred, labels=[0,1])
+        #gt = np.asarray(gt.get_label(), dtype=np.int64)
+        #pred = np.asarray(pred, dtype=np.float64)
+        pred = np.around(pred, decimals=5)
+        cross_entropy = log_loss(gt, pred)
+        #cross_entropy = log_loss(gt, pred, labels=[0,1])
         data_ctr = self.calculate_ctr(gt)
         strawman_cross_entropy = log_loss(gt, [data_ctr for _ in range(len(gt))], labels=[0,1])
         return 'RCE', (1.0 - cross_entropy/strawman_cross_entropy)*100.0
