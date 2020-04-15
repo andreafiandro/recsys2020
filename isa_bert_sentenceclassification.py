@@ -1,5 +1,5 @@
 # DON'T RUN
-# I'm aiming to solve a problem similar with this
+# I am trying to solve a problem like this
 # https://github.com/huggingface/transformers/issues/227
 # running on HPC
 
@@ -86,15 +86,15 @@ class BertForSequenceClassification(nn.Module):
         super(BertForSequenceClassification, self).__init__()
         self.num_labels = num_labels
         self.bert = BertModel.from_pretrained('bert-base-multilingual-cased')
-	self.device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	    self.device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
-	self.model.to(self.device)
+	    self.model.to(self.device)
         nn.init.xavier_normal_(self.classifier.weight).to(self.device)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
-	input_ids=input_ids.to(self.device)
-	token_type_ids=token_type_ids.to(self.device)
+        input_ids=input_ids.to(self.device)
+        token_type_ids=token_type_ids.to(self.device)
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
