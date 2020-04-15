@@ -89,12 +89,9 @@ class BertForSequenceClassification(nn.Module):
         self.device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
-        self.model.to(self.device)
-        nn.init.xavier_normal_(self.classifier.weight).to(self.device)
+        nn.init.xavier_normal_(self.classifier.weight)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
-        input_ids=input_ids.to(self.device)
-        token_type_ids=token_type_ids.to(self.device)
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
@@ -146,8 +143,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             for inputs, output in dataloaders_dict[phase]:
                 #inputs = inputs
                 print(len(inputs),type(inputs),inputs)
-                inputs = torch.from_numpy(np.array(inputs)).to(device) 
-                #inputs = inputs.to(device) 
+                #inputs = torch.from_numpy(np.array(inputs)).to(device) 
+                inputs = inputs.to(device) 
 
                 output = output.to(device)
                 
