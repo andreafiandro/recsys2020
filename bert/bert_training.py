@@ -1,20 +1,20 @@
 import argparse
 import math
+import os
 import pdb
 import time
-import os
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from bert_model import BERT
+from config import TrainingConfig
+from recSysDataset import BertDataset
 from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from transformers import BertForSequenceClassification
-
-from config import TrainingConfig
-from recSysDataset import BertDataset
 
 _PRINT_INTERMEDIATE_LOG = True
 # Choose GPU if is available, otherwise cpu
@@ -69,7 +69,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
                 # create computational graph only for training
                 with torch.set_grad_enabled(phase == 'train'):
-
+                    
                     # BERT returns a tuple. The first one contains the logits
                     outputs = model(inputs)[0]
                     
@@ -96,6 +96,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                       'improved over previous {}'.format(best_loss))
                 best_loss = epoch_loss
                 torch.save(model.cpu().state_dict(), saving_file)
+                print('checkpoint saved in '+saving_file)
 
         time_elapsed = time.time() - since
         print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -182,7 +183,7 @@ def main():
     """Main function for doing sequence classification with BERT
 
     input example:
-    $ python bert_classifier.py \
+    $ python bert_training.py \
             --data isa_puppy_chunk_recsys2020.csv \
             --tokcolumn Text_tokens \
             --predcolumn Reply_engagement_timestamp \
@@ -247,7 +248,7 @@ def main():
     args = parser.parse_args()
 
     # Initializing a BERT model
-    model = BertForSequenceClassification.from_pretrained('bert-base-multilingual-cased')
+    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._n_labels, dropout_prob = TrainingConfig._dropout_prob)
 
     ##########################################################################
     # Accessing the model configuration
