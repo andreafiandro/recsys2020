@@ -1,0 +1,25 @@
+Changelog:
+    - updated to transformers v2.8.0
+    - gpu bug fixed: CrossEntropyLoss object was not on gpu (and also the target tensor)
+    - removed deepcopy in favor of torch.load()
+    - __getitem__() fixed. There was an error due to the presence of the dataframe. Dataframe changed to list.
+    - loss penalization formula corrected
+    - loss computation corrected
+    - clip_upper instead of lambda with transform (available only in torchvision's Datasets)
+    - torchvision package removed
+    - added config.py for storing all configurations
+    - input format changed
+    - added documentation
+    - code refactoring
+    - added .gitignore for Visual Studio Code files
+
+
+
+- I parametri da modificare di BERT devono essere modificati all'interno del file BertConfig, 
+    non a mano riscrivendo i modelli
+- Il modulo torchvision contiene i Dataset ad hoc per computer vision (torchvision è appunto per
+    il campo di cv). Meglio importare direttamente il modulo Dataset da torch.data
+- I learning rate consigliati per BERT sono nel paper (5e-5 va bene)
+- Il codice ora funziona su singola gpu. Per runnarlo su più gpu bastano poche modifiche.
+- Prima di adattarlo per più gpu proporrei di ottimizzare le performance usando facendo la cache del dataset 
+    (ricordami di parlarti di questo ultimo punto)
