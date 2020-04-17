@@ -67,13 +67,11 @@ class BERT(nn.Module):
         
         """
         super(BERT, self).__init__()
-        self.config = BertConfig(n_labels=n_labels)
-        self.bert = BertModel(self.config).from_pretrained(pretrained)
-        #output_hidden_states=False,
-        #output_attentions=False
+        self.config = BertConfig(_num_labels=n_labels)
+        self.bert = BertModel(self.config).from_pretrained(pretrained, output_hidden_states=False, output_attentions=False)
         self.dropout = nn.Dropout(dropout_prob)
-        self.classifier = nn.Linear(in_features=768, out_features=n_labels)
-
+        self.classifier = nn.Linear(in_features=self.config.hidden_size, out_features=self.config._num_labels)
+        
         if freeze_bert:
             self.freeze_layers(self.bert)
 

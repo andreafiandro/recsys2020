@@ -71,9 +71,9 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                 with torch.set_grad_enabled(phase == 'train'):
                     
                     # BERT returns a tuple. The first one contains the logits
-                    outputs = model(inputs)[0]
+                    logits, cls_output = model(inputs)
                     
-                    loss = criterion(outputs, targets)
+                    loss = criterion(logits, targets)
 
                     if phase == 'train':
                         loss.backward()
@@ -82,7 +82,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     
                     #statistics
                     running_loss += loss.item() * inputs.size(0)
-                    correct_output_num += torch.sum(torch.max(outputs, 1)[1] == targets)
+                    correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
 
             epoch_loss = running_loss / datasizes_dict[phase]
             output_acc = correct_output_num.double() / datasizes_dict[phase]
@@ -126,7 +126,7 @@ def preprocessing(df, args):
     #   - Like engagement timestamp
     x = df[args.tokcolumn] # Text_tokens
     y = df[args.predcolumn] # column name prediction
-
+    
     ##########################################################################
     # The labels are not enum but are represented in the dataset
     # as empty cell if there wasn't no engagment or with a timestamp if was an engagment.
