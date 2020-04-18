@@ -14,6 +14,7 @@ import dask
 import xgboost as xgb
 import json
 import pickle
+from RecsysStats import RecSysStats
 
 class RecSysUtility:
 
@@ -106,7 +107,6 @@ class RecSysUtility:
         if(os.path.exists('dtrain.cache.row.page')):
             os.remove('dtrain.cache.row.page')
 
-        label_col = label + '_engagement_timestamp'
         estimator = None
         xgb_params = {
             'eta':0.1, 
@@ -338,14 +338,14 @@ class RecSysUtility:
         """
             This function is used to generate the file ready for the xgboost training
         """      
-
+        rStat = RecSysStats(self.training_file)
         n_chunk = 0
         if(os.path.exists('col_name')):
             os.remove('col_name')
 
         if(training_lines == None):
             print('Count the total number lines')
-            training_lines = self.count_n_lines()
+            training_lines = rStat.count_n_lines()
             print('There are {} lines'.format(training_lines))
 
         # Genero Validation Set
