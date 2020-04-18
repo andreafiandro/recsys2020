@@ -21,7 +21,7 @@ class RecSysUtility:
    
     def __init__(self, training_file):
         self.training_file = training_file
-        logging.basicConfig(filename='statistics.log',level=logging.INFO)
+        logging.basicConfig(filename='training.log',level=logging.INFO)
         ProgressBar().register()
 
         self.col_names_val = ['Text_tokens', 'Hashtags', 'Tweet_id', 'Present_media', 'Present_links', 'Present_domains', 'Tweet_type', 'Language', 'Timestamp',
