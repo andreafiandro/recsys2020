@@ -331,7 +331,7 @@ class RecSysUtility:
                 X_train = X_train.fillna(0)
                 X_train = self.reduce_mem_usage(X_train)
                 X_train.to_csv('{}{}_{}.csv'.format(training_folder, file_type, label.replace('_engagement_timestamp', '')), mode='a', header=False, index=False)
-        return
+        return X_train.columns.tolist()
 
     def generate_training_xgboost(self, training_folder='/datadrive/xgb/', val_size=0.1, test_size=0.1, training_lines=100000000, balanced=False):
 
@@ -357,8 +357,11 @@ class RecSysUtility:
         print('Starting feature engineering...')
         df_val = self.generate_features_lgb(df_val)
         df_val = self.encode_string_features(df_val)
-        self.generate_four_files(df_val, training_folder, 'validation', balanced)
-
+        self.name_of_features = self.generate_four_files(df_val, training_folder, 'validation', balanced)
+         # Salvo i nomi delle colonne
+        with open("col_name", "w") as outfile:
+            outfile.write(",".join(self.name_of_features))
+            
         test_rows = int(test_size * training_lines)
         print('Test Rows: {}'.format(val_rows))
         df_test = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=test_rows, skiprows=val_rows)
@@ -369,9 +372,6 @@ class RecSysUtility:
         df_test = self.encode_string_features(df_test)
         self.generate_four_files(df_test, training_folder, 'test', balanced)
 
-        # Salvo i nomi delle colonne
-        with open("col_name", "w") as outfile:
-            outfile.write(",".join(self.name_of_features))
 
         for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=10000000, skiprows=val_rows+test_rows):
             
