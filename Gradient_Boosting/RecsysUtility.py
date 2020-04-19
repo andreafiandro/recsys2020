@@ -99,13 +99,17 @@ class RecSysUtility:
             OUTPUT:
                 - trained lgbm model that will be also written on the disk
         """     
+        # Da rimuovere
+        self.name_of_features.remove('label')
+
         print('Pulisco le run precedenti') 
-        if(os.path.exists('dtrain.cache')):
-            os.remove('dtrain.cache')
-        if(os.path.exists('dtrain.cache.ellpack.page')):
-            os.remove('dtrain.cache.ellpack.page')
-        if(os.path.exists('dtrain.cache.row.page')):
-            os.remove('dtrain.cache.row.page')
+        for a in ['train', 'val', 'test']:
+            if(os.path.exists('d{}.cache'.format(a))):
+                os.remove('d{}.cache'.format(a))
+            if(os.path.exists('d{}.cache.ellpack.page'.format(a))):
+                os.remove('d{}.cache.ellpack.page'.format(a))
+            if(os.path.exists('d{}.cache.row.page'.format(a))):
+                os.remove('d{}.cache.row.page'.format(a))
 
         estimator = None
         xgb_params = {
@@ -113,13 +117,13 @@ class RecSysUtility:
             'tree_method': 'gpu_hist',
             'sampling_method': 'gradient_based',
             'objective': 'binary:logistic',
-            'nthread':4,  
+            'nthread':6,  
             'seed':1,
             'disable_default_eval_metric': 1
         }
         training_set = xgb.DMatrix('{}training_{}.csv?format=csv&label_column=0#dtrain.cache'.format(training_folder, label), feature_names=self.name_of_features)
         #val_set = xgb.DMatrix('{}validation_{}.csv?format=csv&label_column=0#cacheprefix'.format(training_folder, label))
-        val_set = xgb.DMatrix('{}validation_{}.csv?format=csv&label_column=0'.format(training_folder, label), feature_names=self.name_of_features)
+        val_set = xgb.DMatrix('{}validation_{}.csv?format=csv&label_column=0#dval.cache'.format(training_folder, label), feature_names=self.name_of_features)
         evallist = [(val_set, 'eval'), (training_set, 'train')]
 
         print('Start training for label {}...'.format(label))
@@ -132,7 +136,7 @@ class RecSysUtility:
                                 dtrain=training_set,
                                 evals=evallist)
         print('Training finito')
-        test_set = xgb.DMatrix('{}test_{}.csv?format=csv&label_column=0'.format(training_folder, label), feature_names=self.name_of_features)
+        test_set = xgb.DMatrix('{}test_{}.csv?format=csv&label_column=0#dtest.cache'.format(training_folder, label), feature_names=self.name_of_features)
         y_pred = estimator.predict(test_set)
         prauc = self.compute_prauc(y_pred, test_set.get_label())
         rce = self.compute_rce(y_pred, test_set.get_label())
@@ -358,6 +362,7 @@ class RecSysUtility:
         df_val = self.generate_features_lgb(df_val)
         df_val = self.encode_string_features(df_val)
         self.name_of_features = self.generate_four_files(df_val, training_folder, 'validation', balanced)
+        self.name_of_features.remove('label')
          # Salvo i nomi delle colonne
         with open("col_name", "w") as outfile:
             outfile.write(",".join(self.name_of_features))
