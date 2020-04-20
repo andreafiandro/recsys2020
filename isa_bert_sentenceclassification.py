@@ -1,4 +1,4 @@
-# DON'T RUN
+# DON'T RUN OLD VERSION
 # I am trying to solve a problem like this
 # https://github.com/huggingface/transformers/issues/227
 # running on HPC
