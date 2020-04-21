@@ -3,6 +3,7 @@
 *.log
 *.json
 recsys2020_venv/
+recsys2020/
 funzioni_di_prova.py
 __pycache__
 .ipynb_checkpoints

@@ -62,12 +62,11 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
             # Iterate over data
             for inputs, targets in dataloaders_dict[phase]:
-                print("####")
-                print(inputs)
-                print("####")
+                
                 inputs = torch.from_numpy(np.array(inputs)).to(device)
+                for t in dataloaders_dict["train_t"]:
+                    print(t)
                 targets = targets.to(device)
-
                 optimizer.zero_grad()
 
                 # create computational graph only for training
@@ -77,15 +76,14 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     logits, cls_output = model(inputs)
                     
                     # save CLS
-
-
+                    #print([cls_output,pippo])
                     loss = criterion(logits, targets)
 
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
                         scheduler.step()
-                    
+                        
                     #statistics
                     running_loss += loss.item() * inputs.size(0)
                     correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
@@ -131,6 +129,7 @@ def preprocessing(df, args):
     #   - Retweet with comment engagement timestamp
     #   - Like engagement timestamp
     x = df[args.tokcolumn] # Text_tokens
+    t = df["Tweet_id"]
     y = df[args.predcolumn] # column name prediction
     
     ##########################################################################
@@ -146,7 +145,7 @@ def preprocessing(df, args):
     y = y.clip(upper=1)
 
     # Split in train and test part the chunk
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=args.testsplit, random_state=42) 
+    x_train, x_test, t_train, t_test, y_train, y_test = train_test_split(x, t, y, test_size=args.testsplit, random_state=42) 
 
     # Get the support of each classes in the training (used then to balance the loss)
     classes_support = y_train.value_counts()
@@ -158,6 +157,8 @@ def preprocessing(df, args):
     x_train = x_train.values.tolist()
     x_test = x_test.values.tolist()
 
+    t_train = t_train.values.tolist()
+    t_test = t_test.values.tolist()
     
     ##########################################################################
     # pandas.get_dummies
@@ -181,7 +182,7 @@ def preprocessing(df, args):
     #y_test = pd.get_dummies(y_test).values.tolist()
 
 
-    return [x_train, y_train], [x_test, y_test], classes_support
+    return [x_train, y_train], [t_train, y_train], [x_test, y_test], [t_test, y_test] , classes_support
 
 
 
@@ -275,20 +276,29 @@ def main():
         print('DATASET SHAPE: '+ str(df.shape))
         print('HEAD FUNCTION: '+ str(df.head()))
 
-    train_chunk, test_chunk, classes_support = preprocessing(df, args)
+
+    train_chunk, train_t_chunk, test_chunk, test_t_chunk, classes_support = preprocessing(df, args)
     if _PRINT_INTERMEDIATE_LOG:
         print('Different training classes: \n' + str(classes_support))
 
     # create the dataset objects
     train_data = BertDataset(xy_list=train_chunk)
     test_data = BertDataset(xy_list=test_chunk)
+
+    train_t_data = train_t_chunk
+    test_t_data = test_t_chunk
     
     # create the dataloaders for the training loop
     dataloaders_dict = {'train': torch.utils.data.DataLoader(train_data, batch_size=args.batch, shuffle=True, num_workers=args.workers),
-                    'val': torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=True, num_workers=args.workers)
+                    'train_t': torch.utils.data.DataLoader(train_t_data, batch_size=args.batch, shuffle=True, num_workers=args.workers),
+                    'val': torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=True, num_workers=args.workers),
+                    'val_t': torch.utils.data.DataLoader(test_t_data, batch_size=args.batch, shuffle=True, num_workers=args.workers)
+                   
                    }
     datasizes_dict = {'train':len(train_data),
-                    'val':len(test_data)
+                    'train_t':len(train_t_data),
+                    'val':len(test_data),
+                    'val_t':len(test_t_data)
                     }
 
     # move model to device before optimizer instantiation
