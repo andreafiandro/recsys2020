@@ -10,7 +10,7 @@ class TrainingConfig():
 
     _dropout_prob = .5
 
-    _n_labels = 2
+    _num_labels = 2
 
 
     _checkpoint_path = 'checkpoint/'

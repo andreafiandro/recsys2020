@@ -62,6 +62,9 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
             # Iterate over data
             for inputs, targets in dataloaders_dict[phase]:
+                print("####")
+                print(inputs)
+                print("####")
                 inputs = torch.from_numpy(np.array(inputs)).to(device)
                 targets = targets.to(device)
 
@@ -73,6 +76,9 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     # BERT returns a tuple. The first one contains the logits
                     logits, cls_output = model(inputs)
                     
+                    # save CLS
+
+
                     loss = criterion(logits, targets)
 
                     if phase == 'train':
@@ -192,6 +198,7 @@ def main():
             --workers 2 \
             --testsplit 0.10            
     """
+    print("main")
     parser = argparse.ArgumentParser()
 
     #read user parameters
@@ -246,10 +253,10 @@ def main():
     )
     
     args = parser.parse_args()
-
+    print("main")
     # Initializing a BERT model
-    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._n_labels, dropout_prob = TrainingConfig._dropout_prob)
-
+    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = True)
+    print("main")
     ##########################################################################
     # Accessing the model configuration
     # if you need to modify these parameters, just create a new configuration:
