@@ -167,7 +167,6 @@ class RecSysStats:
         print(dd_authors.head())
         print('Merge tra le azioni del validation da prevedere e autori che hanno un retweet in futuro')
         dd_compare = dd_val.merge(dd_authors, left_on=['User_id_engaging'], right_on=['User_id'], suffixes=('_attuale', '_prec')).compute()
-        print(dd_compare[['User_id', 'Text_tokens_attuale', 'Text_tokens_prec']].head())
         dd_compare.to_csv('tmp.csv')
         #print('Tengo solo quelli in cui i token corrispondono')
         print('Prevedo retweet di retweet')
