@@ -1,6 +1,7 @@
 import pdb
 
 import torch.nn as nn
+import torch.nn.functional as F
 from transformers import BertConfig, BertModel
 
 
@@ -8,7 +9,8 @@ class BERT(nn.Module):
     """Class wrapping BERT for sequence classification
     """
     def __init__(self, pretrained, n_labels, dropout_prob = .5, freeze_bert=None):
-        """To change more parameters just set them in BertConfig()
+        """
+            To change more parameters just set them in BertConfig()
             Possible parameters:
             BertConfig {
                 "_num_labels": 2,
@@ -64,7 +66,6 @@ class BERT(nn.Module):
                 "use_bfloat16": false,
                 "vocab_size": 30522
                 }
-        
         """
         super(BERT, self).__init__()
         self.config = BertConfig(_num_labels=n_labels)
@@ -94,3 +95,72 @@ class BERT(nn.Module):
         logits = self.classifier(pooled_output)
 
         return logits, cls_output
+
+
+class TEXT_CNN(nn.Module):
+    def __init__(self, embedding_dim = 768, n_filters = 100, filter_sizes = [2,3,4,5], output_dim = 4, 
+                 dropout = 0.1):
+        super(TEXT_CNN, self).__init__()
+        
+        self.length = 8
+        self.embedding_dim = embedding_dim
+        self.width = int(self.embedding_dim/self.length)
+        self.convs = nn.ModuleList([
+                                    nn.Conv1d(in_channels = self.width, #self.embedding_dim, #embedding_dim
+                                              out_channels = n_filters, 
+                                              kernel_size = fs)
+                                    for fs in filter_sizes
+                                    ])
+        self.fc = nn.Linear(len(filter_sizes) * n_filters, output_dim)
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, input):
+        #input = (batch_size x cls)
+        # Turn (batch_size x embedding_size) into (batch_size x width x lenth) for CNN
+        view = input.view(input.size(0), self.width, self.length) 
+        conved = [F.relu(conv(view)) for conv in self.convs]
+        pooled = [F.max_pool1d(conv, conv.shape[2]).squeeze(2) for conv in conved]
+        cat = torch.cat(pooled, dim = 1)
+        output = self.fc(cat)
+        return output, cat
+
+
+class TEXT_ENSEMBLE(nn.Module):
+    def __init__(self, bert_model, model_b):
+        super(TEXT_ENSEMBLE, self).__init__()
+        self.bert_model = bert_model
+        self.model_b = model_b
+    
+    def forward(self, input):
+        _, cls = self.bert_model(input)
+        output, hidden = self.model_b(cls)
+        return output, hidden
+
+
+"""
+class ENSEMBLE_CNN(nn.Module): #TODO ensemble text_features + dataset features
+    def __init__(self, dim = , n_filters = 100, filter_sizes = [2,3,4,5], output_dim = 4, 
+                 dropout = 0.1):
+        super(ENSEMBLE_CNN, self).__init__()
+        
+        self.length = 
+        self.embedding_dim = 
+        self.width = 
+        self.convs = nn.ModuleList([
+                                    nn.Conv1d(in_channels = self.width, #self.embedding_dim, #embedding_dim
+                                              out_channels = n_filters, 
+                                              kernel_size = fs)
+                                    for fs in filter_sizes
+                                    ])
+        self.fc = nn.Linear(len(filter_sizes) * n_filters, output_dim)
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, input):
+        # Turn (batch_size x embedding_size) into (batch_size x width x lenth) for CNN
+        #view = input.view(input.size(0), self.width, self.length) 
+        conved = [F.relu(conv(view)) for conv in self.convs]
+        pooled = [F.max_pool1d(conv, conv.shape[2]).squeeze(2) for conv in conved]
+        cat = torch.cat(pooled, dim = 1)
+        output = self.fc(cat)
+        return output
+"""

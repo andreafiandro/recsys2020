@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from bert_model import BERT
+import models as md
 from config import TrainingConfig
 from recSysDataset import BertDataset
 from sklearn.model_selection import train_test_split
@@ -20,7 +20,8 @@ _PRINT_INTERMEDIATE_LOG = True
 # Choose GPU if is available, otherwise cpu
 # Pay attention, if you use HPC load the cuda module
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+if !torch.cuda.is_available() and _PRINT_INTERMEDIATE_LOG:
+    print('WARNING: Working on CPU')
 # create the directory where to save the model checkpoint
 os.makedirs(TrainingConfig._checkpoint_path, exist_ok=True)
 
@@ -70,10 +71,10 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                 # create computational graph only for training
                 with torch.set_grad_enabled(phase == 'train'):
                     
-                    # BERT returns a tuple. The first one contains the logits
-                    logits, cls_output = model(inputs)
+                    # models returns a tuple. The first one contains the linear layer output
+                    predictions, _ = model(inputs)
                     
-                    loss = criterion(logits, targets)
+                    loss = criterion(predictions, targets)
 
                     if phase == 'train':
                         loss.backward()
@@ -82,7 +83,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     
                     #statistics
                     running_loss += loss.item() * inputs.size(0)
-                    correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
+                    correct_output_num += torch.sum(torch.max(predictions, 1)[1] == targets) #cambiare
 
             epoch_loss = running_loss / datasizes_dict[phase]
             output_acc = correct_output_num.double() / datasizes_dict[phase]
@@ -125,7 +126,7 @@ def preprocessing(df, args):
     #   - Retweet with comment engagement timestamp
     #   - Like engagement timestamp
     x = df[args.tokcolumn] # Text_tokens
-    y = df[args.predcolumn] # column name prediction
+    y = df[df.columns[-4:]]
     
     ##########################################################################
     # The labels are not enum but are represented in the dataset
@@ -143,7 +144,7 @@ def preprocessing(df, args):
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=args.testsplit, random_state=42) 
 
     # Get the support of each classes in the training (used then to balance the loss)
-    classes_support = y_train.value_counts()
+    classes_support = y_train.astype(bool).sum(axis=0) #y_train.value_counts()
 
     # Answer to the Ultimate Question of Life, the Universe, and Everything
     # In this case, due the nature of text tokens field, we will have a list of string. 
@@ -209,6 +210,7 @@ def main():
         required=True,
         help="Column name for bert tokens (e.g. \"text tokens\")"
     )
+    """
     parser.add_argument(
         "--predcolumn",
         default=None,
@@ -216,6 +218,7 @@ def main():
         required=True,
         help="Column name for prediction (e.g. \"Reply_angagement_timestamp\" etc.)"
     )
+    """
     parser.add_argument(
         "--epochs",
         default=None,
@@ -248,8 +251,10 @@ def main():
     args = parser.parse_args()
 
     # Initializing a BERT model
-    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._n_labels, dropout_prob = TrainingConfig._dropout_prob)
-
+    bert_model = md.BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._n_labels, 
+                        dropout_prob = TrainingConfig._dropout_prob, freeze_bert=True)
+    cnn_model = md.TEXT_CNN(dropout=TrainingConfig._text_cnn_dropout_prob)
+    model = md.TEXT_ENSEMBLE(bert_model, cnn_model)
     ##########################################################################
     # Accessing the model configuration
     # if you need to modify these parameters, just create a new configuration:
@@ -288,22 +293,32 @@ def main():
     model.to(device)
 
     # create optimizer with different learning rates per layer
+    """
     optimizer = optim.Adam(
         [
             {'params': model.bert.parameters(), 'lr': TrainingConfig._bert_lr},
             {'params': model.classifier.parameters(), 'lr': TrainingConfig._cls_lr}
         ]
     )
+    """
+    optimizer = optim.Adam(model.parameters()) #TODO change to different lr for each component
 
     # instantiate CrossEntropy with class penalization based on class support
+    """
     loss_weights = []
     for class_support in classes_support:
         loss_weights.append(len(train_data) / class_support)
     #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
+    """
+    #weights as NEGATIVES / POSITIVES 
+    #It is a weight of positive examples. Must be a vector with length equal to the number of classes
+    # https://pytorch.org/docs/stable/nn.html#bcewithlogitsloss
+    loss_weights = classes_support.apply(lambda positives: (number_of_rows-positives)/positives).tolist()
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
     loss_weights = torch.tensor(loss_weights)
-    criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device) 
+    #criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device)
 
 
     # def calculate_ctr(gt):
