@@ -169,9 +169,19 @@ class RecSysStats:
         dd_compare = dd_val.merge(dd_authors, left_on=['User_id_engaging'], right_on=['User_id'], suffixes=('_attuale', '_prec')).compute()
         print(dd_compare.head())
         #print('Tengo solo quelli in cui i token corrispondono')
+        print('Prevedo retweet di retweet')
         df_retweet = dd_compare[dd_compare['Text_tokens_attuale'] == dd_compare['Text_tokens_prec']]
-        print('Ho trovato {} retweet sicuri'.format(dd_compare.shape[0]))
+        print('Prevedo retweet di tweet Top Level')
+        dd_compare['Text_tokens_attuale'] = dd_compare['Text_tokens_attuale'].apply(lambda x: x.replace('101|', ''))
+        dd_compare['Text_tokens_prec'] = dd_compare['Text_tokens_prec'].apply(lambda x: x.replace('101|56898|137|', ''))
+        df_retweet_top = dd_compare[dd_compare['Text_tokens_attuale'] == dd_compare['Text_tokens_prec']]
+
+        print('Ho trovato {} retweet sicuri'.format(df_retweet.shape[0]))
         df_retweet.to_csv('retweet_100.csv')
+
+        print('Ho trovato {} retweet toplevel sicuri'.format(df_retweet_top.shape[0]))
+        df_retweet_top.to_csv('retweet_top_100.csv')
+
         return
 
 
