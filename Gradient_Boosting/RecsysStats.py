@@ -2,7 +2,7 @@ import dask.dataframe as dd
 import gc
 import logging
 from dask.diagnostics import ProgressBar
-
+import pandas as pd
 
 class RecSysStats:
 
@@ -152,3 +152,22 @@ class RecSysStats:
             df[col] = df[col].apply(lambda x: self.clean_col(x))
             df[col] = df[col].fillna(0)
         return df
+
+    def get_all_retweet(self, validation_file):
+        dd_val = dd.read_csv(validation_file, sep='\u0001', header=None)
+        dd_val = self.process_chunk_tsv(dd_val, isVal=True)
+        # Tutti gli autori che hanno condiviso un tweet
+        print('Cerco gli utenti con il doppio ruolo Autore/User')
+        dd_authors = dd_val[dd_val['User_id'].isin(dd_val['User_id_engaging'])].compute()
+        print('Filtro quelli che hanno fatto almeno un retweet')
+        dd_authors = dd_authors[dd_authors['Tweet_type'] == 'Retweet'].compute()
+        print('Tengo solo Id + Tweet con cui hanno interagito')
+        dd_authors = dd_authors['User_id', 'Text_tokens']
+        print(dd_authors.head())
+        print('Merge tra le azioni del validation da prevedere e autori che hanno un retweet in futuro')
+        dd_compare = dd_val.merge(dd_authors, left_on=['User_id_engaging', 'Text_tokens'], right_on=['User_id', 'Text_tokens']).compute()
+        print('Tengo solo quelli in cui i token corrispondono')
+        df_retweet = dd_compare[dd_compare['Text_tokens_attuale'] == dd_compare['Text_tokens_prec']].compute()
+        print('Ho trovato {} retweet sicuri'.format(df_retweet.shape[0]))
+        df_retweet[['User_id', 'Tweet_id']].to_csv('retweet_100.csv')
+        return
