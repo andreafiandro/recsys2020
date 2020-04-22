@@ -1,4 +1,4 @@
-from RecsysStats import RecsysStats
+from RecsysStats import RecSysStats
 
 rcStats = RecsysStats('/mnt/val.tsv')
 rcStats.get_all_retweet('/mnt/val.tsv')
