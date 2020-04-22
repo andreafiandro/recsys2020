@@ -571,9 +571,9 @@ class RecSysUtility:
     
     def exploit_leaks_retweet(self, submission_file, solution_file):
         df_sol = pd.read_csv(solution_file)
-        df_sol.columns = ['user_id', 'tweet_id', 'prediction']
         df_sol = df_sol[['User_id_attuale', 'Tweet_id']]
         df_sub = pd.read_csv(submission_file)
+        df_sub.columns = ['user_id', 'tweet_id', 'prediction']
         df_sub = df_sub.merge(df_sol, left_on=['user_id', 'tweet_id'], right_on=['User_id_attuale', 'Tweet_id'])
         print(df_sub.head())
         return
