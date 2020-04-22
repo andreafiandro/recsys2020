@@ -158,7 +158,8 @@ class RecSysStats:
         dd_val = self.process_chunk_tsv(dd_val, isVal=True)
         # Tutti gli autori che hanno condiviso un tweet
         print('Cerco gli utenti con il doppio ruolo Autore/User')
-        dd_authors = dd_val[dd_val['User_id'].isin(dd_val['User_id_engaging'])].compute()
+        user_engaging = dd_val['User_id_engaging'].compute()
+        dd_authors = dd_val[dd_val['User_id'].isin(user_engaging)].compute()
         print('Filtro quelli che hanno fatto almeno un retweet')
         dd_authors = dd_authors[dd_authors['Tweet_type'] == 'Retweet'].compute()
         print('Tengo solo Id + Tweet con cui hanno interagito')
