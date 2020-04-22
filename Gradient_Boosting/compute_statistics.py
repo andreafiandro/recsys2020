@@ -1,6 +1,6 @@
 from RecsysStats import RecSysStats
 
-rcStats = RecsysStats('/mnt/val.tsv')
+rcStats = RecSysStats('/mnt/val.tsv')
 rcStats.get_all_retweet('/mnt/val.tsv')
 #rcUtils.count_n_lines()
 #rcUtils.count_n_tweets(isVal=True)
