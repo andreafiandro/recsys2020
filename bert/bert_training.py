@@ -12,6 +12,7 @@ import torch.optim as optim
 from bert_model import BERT
 from config import TrainingConfig
 from recSysDataset import BertDataset
+
 from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from transformers import BertForSequenceClassification
@@ -27,6 +28,10 @@ os.makedirs(TrainingConfig._checkpoint_path, exist_ok=True)
 
 
 def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, epochs):
+
+
+    
+
     """This function does the training of the model
     
     Arguments:
@@ -41,7 +46,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
     since = time.time()
     print('TRAINING STARTED')
-    
+
     best_loss = math.inf
     saving_file = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth')
 
@@ -62,10 +67,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
             # Iterate over data
             for inputs, targets in dataloaders_dict[phase]:
-                
-                inputs = torch.from_numpy(np.array(inputs)).to(device)
-                for t in dataloaders_dict["train_t"]:
-                    print(t)
+                inputs = torch.from_numpy(np.array(inputs)).to(device)              
                 targets = targets.to(device)
                 optimizer.zero_grad()
 
@@ -74,9 +76,6 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     
                     # BERT returns a tuple. The first one contains the logits
                     logits, cls_output = model(inputs)
-                    
-                    # save CLS
-                    #print([cls_output,pippo])
                     loss = criterion(logits, targets)
 
                     if phase == 'train':
@@ -102,12 +101,12 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                 torch.save(model.cpu().state_dict(), saving_file)
                 print('checkpoint saved in '+saving_file)
 
-        time_elapsed = time.time() - since
-        print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
-        print('Best val Acc: {:4f}'.format(float(best_loss)))
-        
-        return model.load_state_dict(torch.load(saving_file))
+    time_elapsed = time.time() - since
+    print('Training complete in {:.0f}m {:.0f}s'.format(
+    time_elapsed // 60, time_elapsed % 60))
+    print('Best val Acc: {:4f}'.format(float(best_loss)))
+    
+    return model.load_state_dict(torch.load(saving_file))
 
 
 
@@ -129,7 +128,6 @@ def preprocessing(df, args):
     #   - Retweet with comment engagement timestamp
     #   - Like engagement timestamp
     x = df[args.tokcolumn] # Text_tokens
-    t = df["Tweet_id"]
     y = df[args.predcolumn] # column name prediction
     
     ##########################################################################
@@ -145,7 +143,7 @@ def preprocessing(df, args):
     y = y.clip(upper=1)
 
     # Split in train and test part the chunk
-    x_train, x_test, t_train, t_test, y_train, y_test = train_test_split(x, t, y, test_size=args.testsplit, random_state=42) 
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=args.testsplit, random_state=42) 
 
     # Get the support of each classes in the training (used then to balance the loss)
     classes_support = y_train.value_counts()
@@ -156,9 +154,6 @@ def preprocessing(df, args):
     # (this will be done by text_data function).
     x_train = x_train.values.tolist()
     x_test = x_test.values.tolist()
-
-    t_train = t_train.values.tolist()
-    t_test = t_test.values.tolist()
     
     ##########################################################################
     # pandas.get_dummies
@@ -182,7 +177,7 @@ def preprocessing(df, args):
     #y_test = pd.get_dummies(y_test).values.tolist()
 
 
-    return [x_train, y_train], [t_train, y_train], [x_test, y_test], [t_test, y_test] , classes_support
+    return [x_train, y_train], [x_test, y_test] , classes_support
 
 
 
@@ -199,7 +194,7 @@ def main():
             --workers 2 \
             --testsplit 0.10            
     """
-    print("main")
+  
     parser = argparse.ArgumentParser()
 
     #read user parameters
@@ -254,10 +249,10 @@ def main():
     )
     
     args = parser.parse_args()
-    print("main")
+
     # Initializing a BERT model
     model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = True)
-    print("main")
+   
     ##########################################################################
     # Accessing the model configuration
     # if you need to modify these parameters, just create a new configuration:
@@ -270,14 +265,14 @@ def main():
     if _PRINT_INTERMEDIATE_LOG:
         print(model.config)
 
-    nrows = 64 #TODO debug phase only
-    df = pd.read_csv(args.data, nrows=nrows)
+    df = pd.read_csv(args.data)
     if _PRINT_INTERMEDIATE_LOG:
         print('DATASET SHAPE: '+ str(df.shape))
         print('HEAD FUNCTION: '+ str(df.head()))
 
 
-    train_chunk, train_t_chunk, test_chunk, test_t_chunk, classes_support = preprocessing(df, args)
+    train_chunk, test_chunk, classes_support = preprocessing(df, args)
+
     if _PRINT_INTERMEDIATE_LOG:
         print('Different training classes: \n' + str(classes_support))
 
@@ -285,21 +280,15 @@ def main():
     train_data = BertDataset(xy_list=train_chunk)
     test_data = BertDataset(xy_list=test_chunk)
 
-    train_t_data = train_t_chunk
-    test_t_data = test_t_chunk
-    
     # create the dataloaders for the training loop
     dataloaders_dict = {'train': torch.utils.data.DataLoader(train_data, batch_size=args.batch, shuffle=True, num_workers=args.workers),
-                    'train_t': torch.utils.data.DataLoader(train_t_data, batch_size=args.batch, shuffle=True, num_workers=args.workers),
-                    'val': torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=True, num_workers=args.workers),
-                    'val_t': torch.utils.data.DataLoader(test_t_data, batch_size=args.batch, shuffle=True, num_workers=args.workers)
-                   
+                    'val': torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=True, num_workers=args.workers)
                    }
     datasizes_dict = {'train':len(train_data),
-                    'train_t':len(train_t_data),
-                    'val':len(test_data),
-                    'val_t':len(test_t_data)
+                    'val':len(test_data)              
                     }
+
+    
 
     # move model to device before optimizer instantiation
     model.to(device)
@@ -316,6 +305,11 @@ def main():
     loss_weights = []
     for class_support in classes_support:
         loss_weights.append(len(train_data) / class_support)
+
+    #check this patch for not seen labels    
+    if len(loss_weights) < TrainingConfig._num_labels: 
+        loss_weights.extend([1] * (TrainingConfig._num_labels - len(loss_weights)))
+
     #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
@@ -343,9 +337,6 @@ def main():
                                     gamma=TrainingConfig._scheduler_gamma)
 
     train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, args.epochs)
-
-
-
 
 if __name__ == "__main__":
     main()

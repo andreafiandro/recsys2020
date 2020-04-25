@@ -16,7 +16,7 @@ class BertDataset(Dataset):
         ########################################
         # TODO
         # Please, check if max sequence length is correct
-        # Team -JP- suggests that this number could be better chosen 512 -> 256 -> 190
+        # Team -JP- suggests that this number could be better chosen 512 -> 256 -> 150
         # Reasoning over padding has to be done
         ########################################
         self.max_seq_len = 150
