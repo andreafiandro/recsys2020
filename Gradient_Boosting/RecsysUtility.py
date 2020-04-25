@@ -570,12 +570,14 @@ class RecSysUtility:
         return
     
     def exploit_leaks_retweet(self, submission_file, solution_file):
-        df_sol = pd.read_csv(solution_file)
-        df_sol = df_sol[['User_id_attuale', 'Tweet_id']]
-        df_sub = pd.read_csv(submission_file)
-        df_sub.columns = ['user_id', 'tweet_id', 'prediction']
-        df_sub = df_sub.merge(df_sol, left_on=['user_id', 'tweet_id'], right_on=['User_id_attuale', 'Tweet_id'])
-        print(df_sub.head())
+        df_prediction_rt = pd.read_csv(submission_file)
+        df_prediction_rt.columns = ['Tweet_id', 'User_id', 'Prediction']
+        df_retweet_sicuri = pd.read_csv(solution_file)
+        df_retweet_sicuri = df_retweet_sicuri[['Tweet_id', 'User_id_engaging']]
+        df_merged = df_prediction_rt.merge(df_retweet_sicuri, how='left', left_on=['Tweet_id', 'User_id'], right_on=['Tweet_id', 'User_id_engaging'])
+        df_merged['Prediction'] = np.where((df_merged['User_id']==df_merged['User_id_engaging']), 1, df_merged['Prediction'])
+        df_merged = df_merged[['Tweet_id', 'User_id', 'Prediction']]
+        df_merged.to_csv('prediction_Retweet_leaks.csv', header=False, index=False)
         return
 
         
