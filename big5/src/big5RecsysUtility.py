@@ -200,3 +200,25 @@ class Big5Recsys:
         self.model_E = self.load_big5_model("E")
         self.model_A = self.load_big5_model("A")
         self.model_N = self.load_big5_model("N")
+
+    def from_text_to_token_id(self, text):
+        ''' 
+            how to use this function
+        bu = Big5Recsys()
+        text = "retweet"
+        bu.from_text_to_token_id(text)
+        '''
+        # text = "Here is the sentence I want embeddings for."
+        marked_text = "[CLS] " + text + " [SEP]"
+
+        # Tokenize our sentence with the BERT tokenizer.
+        tokenized_text = self.tokenizer.tokenize(marked_text)
+
+        # Print out the tokens.
+        print(tokenized_text)
+        # Map the token strings to their vocabulary indeces.
+        indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text)
+
+        # Display the words with their indeces.
+        for tup in zip(tokenized_text, indexed_tokens):
+            print('{:<12} {:>6,}'.format(tup[0], tup[1]))
