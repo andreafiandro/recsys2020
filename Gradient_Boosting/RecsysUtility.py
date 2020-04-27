@@ -12,9 +12,13 @@ from sklearn.metrics import precision_recall_curve, auc, log_loss
 import logging
 import dask
 import xgboost as xgb
+from xgboost import XGBClassifier
 import json
 import pickle
 from RecsysStats import RecSysStats
+from sklearn.multiclass import OneVsRestClassifier
+from xgboost.dask import DaskXGBClassifier
+from dask.distributed import Client, LocalCluster
 
 class RecSysUtility:
 
@@ -90,6 +94,86 @@ class RecSysUtility:
             to_concat.append(pd.read_csv('./{}/{}'.format(label,f), header=None))
         df_grouped = pd.concat(to_concat, axis=0, ignore_index=True)
         df_grouped.to_csv('prediction_{}.csv'.format(label), index=False)
+
+    def xgboost_multilabel(self, nrows=10000):
+        """
+        Classificazione Multi-Label: alleno un solo modello, con più dati possibili (da gestire la scalabilità)
+        Step:
+            1. Carico i dati (il più possibile)
+            2. Processo i dati per pulirli
+            3. Genero le features aggiuntive
+            4. Split tra train/val/test
+            5. Alleno il modello
+            6. Salvo il modello
+            7. Testo il modello
+        """
+
+        # 1. Carico i dati
+        df_input = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=nrows)
+
+        # 2. Pulisco i dati
+        df_input = self.process_chunk_tsv(df_input)
+        df_input = self.generate_features_lgb(df_input, user_features_file = './user_features_final.csv')
+        df_input = self.encode_string_features(df_input)
+        
+        # 3. Split tra Train / Val / Test
+        df_train, df_test = train_test_split(df_input, test_size=0.15)
+        print('Split ----- Training: {} / Test: {} '.format(df_train.shape[0], df_test.shape[0]))
+        x_train, y_train = self.split_label_training(df_train)
+        x_test, y_test = self.split_label_training(df_test)
+        print('Parte il training... Utilizzo {} feature'.format(x_test.shape[1]))
+
+        # Alleno il modello
+        clf = OneVsRestClassifier(XGBClassifier(n_jobs=-1, max_depth=10, objective='binary:logistic'))
+        clf.fit(x_train, y_train)
+
+        # Salvo il modello
+        pickle.dump(clf, open('model_xgb_multilabel.dat', "wb"))
+
+        # Testo il modello
+        self.evaluate_multi_label(clf, x_test, y_test)
+
+        return
+
+    def generate_submission_multilabel(self, validation_file):
+
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
+        val = pd.read_csv(validation_file, sep='\u0001', header=None, nrows=10000)
+        val = self.process_chunk_tsv(val, isVal=True)
+        df_out = pd.DataFrame(columns = ['Tweet_id', 'User_id', 'Prediction'])
+        df_out['Tweet_id'] = val['Tweet_id']
+        df_out['User_id'] = val['User_id_engaging']
+        print('Starting feature engineering...')
+        val = self.generate_features_lgb(val, user_features_file = './user_features_final.csv')
+        val = self.encode_val_string_features(val)
+        val = val.drop(not_useful_cols, axis=1)
+        model = pickle.load(open('model_xgb_multilabel.dat', "rb"))
+
+        print('Start Prediction')
+        predictions = model.predict_proba(val)
+        lista_label = ['Reply', 'Retweet', 'Comment', 'Like']
+
+        for i in range(0,4):
+            df_out['Prediction'] = predictions.T[i]
+            df_out.to_csv('prediction_{}.csv'.format(lista_label[i]), index=False, header=False)
+
+        return
+
+
+    def evaluate_multi_label(self, clf, x, y):
+        predictions = clf.predict_proba(x)
+        lista_label = y.columns.values
+        for i in range(0, 4):
+            gt = y.iloc[:,i]
+            predictions_label = predictions.T[i]
+            rce = self.compute_rce(predictions_label, gt)
+            prauc = self.compute_prauc(predictions_label, gt)
+            print('{} --- PRAUC {} / RCE {}'.format(lista_label[i], prauc, rce))
+        return
+
+
+
+
 
     def xgboost_training_memory(self, label, training_folder='/datadrive/xgb/'):
         """
@@ -260,7 +344,7 @@ class RecSysUtility:
             df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x])
         return df
 
-    def generate_features_lgb(self, df, user_features_file='./user_features_final.csv'):
+    def generate_features_lgb(self, df, user_features_file='user_features_final.csv'):
         """
         Function to generate the features included in the gradient boosting model.
         """
@@ -454,6 +538,15 @@ class RecSysUtility:
     ------------------------------------------------------------------------------------------
     """
 
+    def split_label_training(self, df):
+        label_cols = ['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
+        not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
+        df_labels = df[label_cols]
+        df_labels = df_labels.fillna(0)
+        for c in df_labels.columns:
+            df_labels[c] = df_labels[c].apply(lambda x: 1 if x != 0 else 0)
+        df_train = df.drop(label_cols + not_useful_cols, axis=1)
+        return df_train, df_labels
 
     def print_and_log(self, to_print):
         logging.info(to_print)
