@@ -21,7 +21,7 @@ _PRINT_INTERMEDIATE_LOG = True
 # Choose GPU if is available, otherwise cpu
 # Pay attention, if you use HPC load the cuda module
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+print(device)
 # create the directory where to save the model checkpoint
 os.makedirs(TrainingConfig._checkpoint_path, exist_ok=True)
 
@@ -75,7 +75,9 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                 with torch.set_grad_enabled(phase == 'train'):
                     
                     # BERT returns a tuple. The first one contains the logits
+                    model.to(device)
                     logits, cls_output = model(inputs)
+                    
                     loss = criterion(logits, targets)
 
                     if phase == 'train':
