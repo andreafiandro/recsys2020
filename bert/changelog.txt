@@ -1,3 +1,7 @@
+Changelog 04/05/2020
+    - cambiato da single label classification a multilabel classification
+
+
 Changelog:
     - updated to transformers v2.8.0
     - gpu bug fixed: CrossEntropyLoss object was not on gpu (and also the target tensor)

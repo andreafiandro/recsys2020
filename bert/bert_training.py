@@ -75,6 +75,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     # BERT returns a tuple. The first one contains the logits
                     
                     logits, cls_output = model(inputs)
+
                     # aggiunto per via dell'errore 
                     # Runtime Error: result type Float cannot be cast to the desired output type Long
                     targets = targets.float()
@@ -90,7 +91,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     #statistics
                     running_loss += loss.item() * inputs.size(0)
 
-                    # da modificare per l'accuracy multi label
+                    # da modificare per l'accuracy multilabel
                     # correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
 
             epoch_loss = running_loss / datasizes_dict[phase]
@@ -163,11 +164,7 @@ def preprocessing(df, args):
     # Get the support of each classes in the training (used then to balance the loss)
     # classes_support = y_train.value_counts() # single label
     classes_support = y_train.astype(bool).sum(axis=0)
-    i=0
-    for x in classes_support:
-        if(x<1):
-            classes_support[i] = 1
-        i = i + 1
+    classes_support = [1 if x == 0 else x for x in classes_support]
 
     
     # In this case, due the nature of text tokens field, we will have a list of string. 
@@ -347,6 +344,7 @@ def main():
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
     loss_weights = torch.tensor(loss_weights)
+    
     # criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device) # single label
     criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device) 
 
