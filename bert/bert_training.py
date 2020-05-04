@@ -163,8 +163,10 @@ def preprocessing(df, args):
 
     # Get the support of each classes in the training (used then to balance the loss)
     # classes_support = y_train.value_counts() # single label
-    classes_support = y_train.astype(bool).sum(axis=0)
-    classes_support = [1 if x == 0 else x for x in classes_support]
+    classes_support = y_train.astype(bool).sum(axis=0).apply(lambda x: 1 if x == 0 else x )
+    
+    # classes_support = [1 if x == 0 else x for x in classes_support]
+    
 
     
     # In this case, due the nature of text tokens field, we will have a list of string. 
@@ -240,6 +242,7 @@ def main():
         required=True,
         help="Column name for bert tokens (e.g. \"text tokens\")"
     )
+    # questo non dovrebbe più servire con la multilabel classification
     parser.add_argument(
         "--predcolumn",
         default=None,
@@ -279,7 +282,7 @@ def main():
     args = parser.parse_args()
 
     # Initializing a BERT model
-    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = True)
+    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert=True)
    
     ##########################################################################
     # Accessing the model configuration
@@ -298,6 +301,7 @@ def main():
         print('DATASET SHAPE: '+ str(df.shape))
         print('HEAD FUNCTION: '+ str(df.head()))
 
+    number_of_rows = len(df.index)
 
     train_chunk, test_chunk, classes_support = preprocessing(df, args)
 
@@ -330,23 +334,25 @@ def main():
     )
 
     # instantiate CrossEntropy with class penalization based on class support
-    loss_weights = []
 
-
-    for class_support in classes_support:
-        loss_weights.append(len(train_data) / class_support)
-
-    #check this patch for not seen labels    
+    # sostituita da altro sopra perchè il calcolo dei pesi è cambiato  
+    # loss_weights = []
+    # for class_support in classes_support:
+    #     loss_weights.append(len(train_data) / class_support)
+    # check this patch for not seen labels
     # if len(loss_weights) < TrainingConfig._num_labels: 
     #     loss_weights.extend([1] * (TrainingConfig._num_labels - len(loss_weights)))
 
+    # weights as NEGATIVES / POSITIVES Team JP
+    # It is a weight of positive examples. Must be a vector with length equal to the number of classes
+    # https://pytorch.org/docs/stable/nn.html#bcewithlogitsloss
+    loss_weights = classes_support.apply(lambda positives: (number_of_rows-positives)/positives).tolist()
     #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
     loss_weights = torch.tensor(loss_weights)
-    
     # criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device) # single label
-    criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device) 
+    criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device)
 
     # def calculate_ctr(gt):
     #    positive = len([x for x in gt if x == 1])
