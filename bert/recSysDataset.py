@@ -12,7 +12,8 @@ class BertDataset(Dataset):
 
     def __init__(self, xy_list):
 
-        self.xy_list = [xy_list[0], xy_list[1].tolist()]
+        self.xy_list = [xy_list[0], xy_list[1], xy_list[2], xy_list[3], xy_list[4]]
+  
         ########################################
         # TODO
         # Please, check if max sequence length is correct
@@ -50,11 +51,11 @@ class BertDataset(Dataset):
      
         ids_review = torch.tensor(ids_review)
 
-        target = self.xy_list[1][index] # color   
-       
-        #list_of_labels = [torch.from_numpy(np.array(output))]
+        #target = self.xy_list[1][index] # single label
+        target = [self.xy_list[1][index],self.xy_list[2][index],self.xy_list[3][index],self.xy_list[4][index]]
+
         target = torch.tensor(target, dtype=torch.int64)
-        
+
         return ids_review, target
 
 

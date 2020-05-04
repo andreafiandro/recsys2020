@@ -29,9 +29,6 @@ os.makedirs(TrainingConfig._checkpoint_path, exist_ok=True)
 
 def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, epochs):
 
-
-    
-
     """This function does the training of the model
     
     Arguments:
@@ -49,7 +46,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
     best_loss = math.inf
     saving_file = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth')
-
+    saving_file_finetuning = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test_finetuning.pth')
 
     for epoch in range(epochs):
         print('-' * 10)
@@ -67,6 +64,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
             # Iterate over data
             for inputs, targets in dataloaders_dict[phase]:
+                
                 inputs = torch.from_numpy(np.array(inputs)).to(device)              
                 targets = targets.to(device)
                 optimizer.zero_grad()
@@ -75,10 +73,14 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                 with torch.set_grad_enabled(phase == 'train'):
                     
                     # BERT returns a tuple. The first one contains the logits
-                    model.to(device)
-                    logits, cls_output = model(inputs)
                     
+                    logits, cls_output = model(inputs)
+                    # aggiunto per via dell'errore 
+                    # Runtime Error: result type Float cannot be cast to the desired output type Long
+                    targets = targets.float()
+
                     loss = criterion(logits, targets)
+                    loss.to(device)
 
                     if phase == 'train':
                         loss.backward()
@@ -87,21 +89,30 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                         
                     #statistics
                     running_loss += loss.item() * inputs.size(0)
-                    correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
+
+                    # da modificare per l'accuracy multi label
+                    # correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
 
             epoch_loss = running_loss / datasizes_dict[phase]
-            output_acc = correct_output_num.double() / datasizes_dict[phase]
+            #output_acc = correct_output_num.double() / datasizes_dict[phase]
 
             print('{} total loss: {:.4f} '.format(phase,epoch_loss ))
-            print('{} output_acc: {:.4f}'.format(
-                phase, output_acc))
+            #print('{} output_acc: {:.4f}'.format(phase, output_acc))
 
             if phase == 'val' and epoch_loss < best_loss:
                 print('saving with loss of {}'.format(epoch_loss),
                       'improved over previous {}'.format(best_loss))
                 best_loss = epoch_loss
-                torch.save(model.cpu().state_dict(), saving_file)
+                model_cpu = model.cpu().state_dict()
+
+                # Print model's state_dict
+                # print("Model's state_dict:")
+                # for param_tensor in model_cpu:
+                #     print(param_tensor, "\t", model_cpu[param_tensor].size())
+
+                torch.save(model_cpu, saving_file)
                 print('checkpoint saved in '+saving_file)
+                model.to(device)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -130,7 +141,8 @@ def preprocessing(df, args):
     #   - Retweet with comment engagement timestamp
     #   - Like engagement timestamp
     x = df[args.tokcolumn] # Text_tokens
-    y = df[args.predcolumn] # column name prediction
+    # y = df[args.predcolumn] # single label
+    y = df[df.columns[-4:]] # column name prediction
     
     ##########################################################################
     # The labels are not enum but are represented in the dataset
@@ -146,17 +158,34 @@ def preprocessing(df, args):
 
     # Split in train and test part the chunk
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=args.testsplit, random_state=42) 
+    # Answer to the Ultimate Question of Life, the Universe, and Everything
 
     # Get the support of each classes in the training (used then to balance the loss)
-    classes_support = y_train.value_counts()
+    # classes_support = y_train.value_counts() # single label
+    classes_support = y_train.astype(bool).sum(axis=0)
+    i=0
+    for x in classes_support:
+        if(x<1):
+            classes_support[i] = 1
+        i = i + 1
 
-    # Answer to the Ultimate Question of Life, the Universe, and Everything
+    
     # In this case, due the nature of text tokens field, we will have a list of string. 
     # Each string is a sequence of token ids separed by | , that have to be correctly transformed into a list 
     # (this will be done by text_data function).
     x_train = x_train.values.tolist()
     x_test = x_test.values.tolist()
     
+    y_train_reply = y_train['Reply_engagement_timestamp'].values.tolist()
+    y_train_retweet = y_train['Retweet_engagement_timestamp'].values.tolist()
+    y_train_retweet_comment = y_train['Retweet_with_comment_engagement_timestamp'].values.tolist()
+    y_train_like = y_train['Like_engagement_timestamp'].values.tolist()
+
+    y_test_reply = y_test['Reply_engagement_timestamp'].values.tolist()
+    y_test_retweet = y_test['Retweet_engagement_timestamp'].values.tolist()
+    y_test_retweet_comment = y_test['Retweet_with_comment_engagement_timestamp'].values.tolist()
+    y_test_like = y_test['Like_engagement_timestamp'].values.tolist()
+
     ##########################################################################
     # pandas.get_dummies
     # Convert categorical variable into dummy/indicator variables.
@@ -179,7 +208,7 @@ def preprocessing(df, args):
     #y_test = pd.get_dummies(y_test).values.tolist()
 
 
-    return [x_train, y_train], [x_test, y_test] , classes_support
+    return [x_train, y_train_reply, y_train_retweet, y_train_retweet_comment, y_train_like], [x_test, y_test_reply, y_test_retweet, y_test_retweet_comment, y_test_like] , classes_support
 
 
 
@@ -305,19 +334,21 @@ def main():
 
     # instantiate CrossEntropy with class penalization based on class support
     loss_weights = []
+
+
     for class_support in classes_support:
         loss_weights.append(len(train_data) / class_support)
 
     #check this patch for not seen labels    
-    if len(loss_weights) < TrainingConfig._num_labels: 
-        loss_weights.extend([1] * (TrainingConfig._num_labels - len(loss_weights)))
+    # if len(loss_weights) < TrainingConfig._num_labels: 
+    #     loss_weights.extend([1] * (TrainingConfig._num_labels - len(loss_weights)))
 
     #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
     loss_weights = torch.tensor(loss_weights)
-    criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device)
-
+    # criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device) # single label
+    criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device) 
 
     # def calculate_ctr(gt):
     #    positive = len([x for x in gt if x == 1])
