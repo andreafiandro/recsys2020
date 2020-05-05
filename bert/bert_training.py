@@ -17,6 +17,8 @@ from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from transformers import BertForSequenceClassification
 
+from RCE import Multi_Label_RCE_Loss
+
 _PRINT_INTERMEDIATE_LOG = True
 # Choose GPU if is available, otherwise cpu
 # Pay attention, if you use HPC load the cuda module
@@ -27,7 +29,7 @@ os.makedirs(TrainingConfig._checkpoint_path, exist_ok=True)
 
 
 
-def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, epochs):
+def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, epochs, rce_loss):
 
     """This function does the training of the model
     
@@ -45,6 +47,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
     print('TRAINING STARTED')
 
     best_loss = math.inf
+    best_rce = math.inf
     saving_file = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth')
     saving_file_finetuning = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test_finetuning.pth')
 
@@ -52,6 +55,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
         print('-' * 10)
         print('Epoch {}/{}'.format(epoch, epochs - 1))
 
+        epoch_rce = 0.0
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
@@ -87,6 +91,8 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                         loss.backward()
                         optimizer.step()
                         scheduler.step()
+                    else:
+                        epoch_rce += rce_loss(logits, targets)
                         
                     #statistics
                     running_loss += loss.item() * inputs.size(0)
@@ -100,26 +106,34 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
             print('{} total loss: {:.4f} '.format(phase,epoch_loss ))
             #print('{} output_acc: {:.4f}'.format(phase, output_acc))
 
-            if phase == 'val' and epoch_loss < best_loss:
-                print('saving with loss of {}'.format(epoch_loss),
-                      'improved over previous {}'.format(best_loss))
-                best_loss = epoch_loss
-                model_cpu = model.cpu().state_dict()
+            if phase == 'val':
+                if epoch_loss < best_loss:
+                    print('saving with loss of {}'.format(epoch_loss),
+                        'improved over previous {}'.format(best_loss))
+                    best_loss = epoch_loss
+                    model_cpu = model.cpu().state_dict()
 
-                # Print model's state_dict
-                # print("Model's state_dict:")
-                # for param_tensor in model_cpu:
-                #     print(param_tensor, "\t", model_cpu[param_tensor].size())
+                    # Print model's state_dict
+                    # print("Model's state_dict:")
+                    # for param_tensor in model_cpu:
+                    #     print(param_tensor, "\t", model_cpu[param_tensor].size())
 
-                torch.save(model_cpu, saving_file)
-                print('checkpoint saved in '+saving_file)
-                model.to(device)
+                    torch.save(model_cpu, saving_file)
+                    print('checkpoint saved in '+saving_file)
+                    model.to(device)
+                if running_rce < best_rce:
+                    print('new best rce of {}'.format(epoch_rce),
+                        'improved over previous {}'.format(best_rce))
+                    best_rce = epoch_rce
+                    # print('rce eval loss: {}'.format(epoch_rce))
+               
+
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
     time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}'.format(float(best_loss)))
-    
+    print('Best val Acc (loss): {:4f}'.format(float(best_loss)))
+    print('Best val rce (loss): '.format(best_rce))
     return model.load_state_dict(torch.load(saving_file))
 
 
@@ -164,7 +178,7 @@ def preprocessing(df, args):
     # Get the support of each classes in the training (used then to balance the loss)
     # classes_support = y_train.value_counts() # single label
     classes_support = y_train.astype(bool).sum(axis=0).apply(lambda x: 1 if x == 0 else x )
-    
+    test_positive_rates = y_test.astype(bool).sum(axis=0) / len(y_test.index)
     # classes_support = [1 if x == 0 else x for x in classes_support]
     
 
@@ -207,7 +221,7 @@ def preprocessing(df, args):
     #y_test = pd.get_dummies(y_test).values.tolist()
 
 
-    return [x_train, y_train_reply, y_train_retweet, y_train_retweet_comment, y_train_like], [x_test, y_test_reply, y_test_retweet, y_test_retweet_comment, y_test_like] , classes_support
+    return [x_train, y_train_reply, y_train_retweet, y_train_retweet_comment, y_train_like], [x_test, y_test_reply, y_test_retweet, y_test_retweet_comment, y_test_like] , classes_support, test_positive_rates
 
 
 
@@ -304,7 +318,7 @@ def main():
     number_of_rows = len(df.index)
     print("Number of rows "+str(number_of_rows))
 
-    train_chunk, test_chunk, classes_support = preprocessing(df, args)
+    train_chunk, test_chunk, classes_support, test_positive_rates = preprocessing(df, args)
 
     number_of_training_rows = len(train_chunk[0])
     print("Number of training rows "+str(number_of_training_rows))
@@ -351,13 +365,14 @@ def main():
     # It is a weight of positive examples. Must be a vector with length equal to the number of classes
     # https://pytorch.org/docs/stable/nn.html#bcewithlogitsloss
     loss_weights = classes_support.apply(lambda positives: (number_of_training_rows-positives)/positives).tolist()
+    positive_rates = torch.FloatTensor(test_positive_rates)
     #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
     loss_weights = torch.tensor(loss_weights)
     # criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device) # single label
     criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device)
-
+    rce_loss = Multi_Label_RCE_Loss(ctr = positive_rates).to(device)
     # def calculate_ctr(gt):
     #    positive = len([x for x in gt if x == 1])
     #    ctr = positive/float(len(gt))
@@ -377,7 +392,7 @@ def main():
                                     step_size=TrainingConfig._scheduler_step, 
                                     gamma=TrainingConfig._scheduler_gamma)
 
-    train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, args.epochs)
+    train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, args.epochs, rce_loss)
 
 if __name__ == "__main__":
     main()
