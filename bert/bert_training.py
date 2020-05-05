@@ -306,7 +306,7 @@ def main():
 
     train_chunk, test_chunk, classes_support = preprocessing(df, args)
 
-    number_of_training_rows = len(train_chunk)
+    number_of_training_rows = len(train_chunk[0])
     print("Number of training rows "+str(number_of_training_rows))
 
     if _PRINT_INTERMEDIATE_LOG:
