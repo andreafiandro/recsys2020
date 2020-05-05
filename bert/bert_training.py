@@ -121,7 +121,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     torch.save(model_cpu, saving_file)
                     print('checkpoint saved in '+saving_file)
                     model.to(device)
-                if running_rce < best_rce:
+                if epoch_rce < best_rce:
                     print('new best rce of {}'.format(epoch_rce),
                         'improved over previous {}'.format(best_rce))
                     best_rce = epoch_rce
@@ -178,7 +178,7 @@ def preprocessing(df, args):
     # Get the support of each classes in the training (used then to balance the loss)
     # classes_support = y_train.value_counts() # single label
     classes_support = y_train.astype(bool).sum(axis=0).apply(lambda x: 1 if x == 0 else x )
-    test_positive_rates = y_test.astype(bool).sum(axis=0) / len(y_test.index)
+    test_positive_rates = y_test.astype(bool).sum(axis=0) / len(y_test.index) #positivi/tot
     # classes_support = [1 if x == 0 else x for x in classes_support]
     
 
