@@ -282,7 +282,7 @@ def main():
     args = parser.parse_args()
 
     # Initializing a BERT model
-    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert=True)
+    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = True)
    
     ##########################################################################
     # Accessing the model configuration
@@ -302,8 +302,12 @@ def main():
         print('HEAD FUNCTION: '+ str(df.head()))
 
     number_of_rows = len(df.index)
+    print("Number of rows "+str(number_of_rows))
 
     train_chunk, test_chunk, classes_support = preprocessing(df, args)
+
+    number_of_training_rows = len(train_chunk)
+    print("Number of training rows "+str(number_of_training_rows))
 
     if _PRINT_INTERMEDIATE_LOG:
         print('Different training classes: \n' + str(classes_support))
@@ -346,7 +350,7 @@ def main():
     # weights as NEGATIVES / POSITIVES Team JP
     # It is a weight of positive examples. Must be a vector with length equal to the number of classes
     # https://pytorch.org/docs/stable/nn.html#bcewithlogitsloss
-    loss_weights = classes_support.apply(lambda positives: (number_of_rows-positives)/positives).tolist()
+    loss_weights = classes_support.apply(lambda positives: (number_of_training_rows-positives)/positives).tolist()
     #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
