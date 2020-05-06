@@ -50,8 +50,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
     best_rce = math.inf
     best_rce_by_label = None
     saving_file = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth')
-    saving_file_finetuning = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test_finetuning.pth')
-
+    
     for epoch in range(epochs):
         print('-' * 10)
         print('Epoch {}/{}'.format(epoch, epochs - 1))
@@ -102,7 +101,8 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     # correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
 
             epoch_loss = running_loss / datasizes_dict[phase]
-            epoch_rce = torch.sum(running_rce)
+            
+            
             #output_acc = correct_output_num.double() / datasizes_dict[phase]
 
             print('{} total loss: {:.4f} '.format(phase,epoch_loss))
@@ -110,7 +110,8 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
             if phase == 'val':
                 print('running rce loss:', running_rce)
-
+                epoch_rce = torch.sum(running_rce)
+                
                 if epoch_loss < best_loss:
                     print('saving with loss of {}'.format(epoch_loss),
                         'improved over previous {}'.format(best_loss))
