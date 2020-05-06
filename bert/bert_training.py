@@ -111,7 +111,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
             if phase == 'val':
                 print('running rce loss:', running_rce)
                 epoch_rce = torch.sum(running_rce)
-                
+
                 if epoch_loss < best_loss:
                     print('saving with loss of {}'.format(epoch_loss),
                         'improved over previous {}'.format(best_loss))
@@ -303,9 +303,18 @@ def main():
     
     args = parser.parse_args()
 
+    not_bert_finetuning = None
+
     # Initializing a BERT model
-    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = True)
-   
+    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = not_bert_finetuning)
+    
+    # per training incrementali, da mettere meglio nel training config o altrove
+
+    if(not_bert_finetuning):
+        checkpoint = torch.load(os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth'))
+        model.load_state_dict(checkpoint)
+    
+
     ##########################################################################
     # Accessing the model configuration
     # if you need to modify these parameters, just create a new configuration:
