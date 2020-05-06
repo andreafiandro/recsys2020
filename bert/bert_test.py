@@ -105,7 +105,10 @@ def main():
     for line in test_data:
         text_line = torch.from_numpy(np.array(line[0])).to(device)
         logits, cls_output = model(text_line)
-        submission_dataframe.loc[i] = [line[1][0],line[2][0]]+logits[0].tolist()
+        logits = [ (lambda x: logit2prob(x))(x) for x in logits[0].tolist()]
+
+        
+        submission_dataframe.loc[i] = [line[1][0],line[2][0]]+logits
         i = i + 1
 
     if _PRINT_INTERMEDIATE_LOG:
@@ -126,6 +129,10 @@ def main():
     submission_dataframe.to_csv(r'like_prediction.csv',columns = ['Tweet_Id','User_Id','Prediction'],index=False)
     submission_dataframe.rename(columns={'Prediction':'Like'}, inplace=True)
     
+def logit2prob(logit):
+  odds = math.exp(logit)
+  prob = odds / (1 + odds)
+  return prob
 
     
 if __name__ == "__main__":
