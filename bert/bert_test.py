@@ -128,7 +128,8 @@ def main():
     submission_dataframe.rename(columns={'Like':'Prediction'}, inplace=True)
     submission_dataframe.to_csv(r'like_prediction.csv',columns = ['Tweet_Id','User_Id','Prediction'],index=False)
     submission_dataframe.rename(columns={'Prediction':'Like'}, inplace=True)
-    
+
+# to logit to prob  
 def logit2prob(logit):
   odds = math.exp(logit)
   prob = odds / (1 + odds)
