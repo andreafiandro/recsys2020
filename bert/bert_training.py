@@ -408,7 +408,7 @@ def main():
     scheduler = lr_scheduler.StepLR(optimizer, 
                                     step_size=TrainingConfig._scheduler_step, 
                                     gamma=TrainingConfig._scheduler_gamma)
-
+    
     train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, args.epochs, rce_loss)
 
 if __name__ == "__main__":
