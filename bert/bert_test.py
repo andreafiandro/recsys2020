@@ -10,14 +10,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from bert_model import BERT
+from config import TestConfig
 from config import TrainingConfig
 from recSysDataset import BertDatasetTest
+from nlprecsysutility import submission_files
 from transformers import BertForSequenceClassification
 
 
 _PRINT_INTERMEDIATE_LOG = True
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
+os.makedirs(TestConfig._output_dir, exist_ok=True)
 
 def preprocessing(df, args):
 
@@ -72,7 +75,7 @@ def main():
     # Initializing a BERT model
     model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = True)
     
-    # load del nostro modello per la fase di test
+    # load del nostro modello per la fase di test,  andrebbe caricato questo direttamente al posto del pretrained bert
 
     checkpoint = torch.load(os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth'))
     model.load_state_dict(checkpoint)
@@ -97,17 +100,24 @@ def main():
     test_data = BertDatasetTest(xy_list=[text_test_chunk,tweetid_test_chunk,user_test_chunk])
     test_data = torch.utils.data.DataLoader(test_data)
 
-    # move model to device before optimizer instantiation
+    # move model to device
     model.to(device)
+
+    # test dataframe 
     submission_dataframe = pd.DataFrame(columns=['Tweet_Id', 'User_Id','Reply','Retweet','Retweet_with_comment','Like'])
 
+    # eval linea per linea da portare a batch, controllando la corrispondenza effettiva con le altre colonne
+
+    m = nn.Sigmoid()
     i=0
+
     for line in test_data:
         text_line = torch.from_numpy(np.array(line[0])).to(device)
         logits, cls_output = model(text_line)
-        logits = [ (lambda x: logit2prob(x))(x) for x in logits[0].tolist()]
-
-        
+        logits = [(lambda x: logit2prob(x))(x) for x in logits[0]]
+        # m = nn.Sigmoid()
+        #logits = [(lambda x: m(x))(x) for x in logits[0]] # da completare con la sigmoide di torch
+        # print(logits)
         submission_dataframe.loc[i] = [line[1][0],line[2][0]]+logits
         i = i + 1
 
@@ -116,20 +126,11 @@ def main():
         print('HEAD FUNCTION: '+ str(submission_dataframe.head()))
     
     # make submission file <Tweet_Id>,<User_Id>,<Prediction>
-    submission_dataframe.rename(columns={'Reply':'Prediction'}, inplace=True)
-    submission_dataframe.to_csv(r'reply_prediction.csv',columns = ['Tweet_Id','User_Id','Prediction'],index=False)
-    submission_dataframe.rename(columns={'Prediction':'Reply'}, inplace=True)
-    submission_dataframe.rename(columns={'Retweet':'Prediction'}, inplace=True)
-    submission_dataframe.to_csv(r'retweet_prediction.csv',columns = ['Tweet_Id','User_Id','Prediction'],index=False)
-    submission_dataframe.rename(columns={'Prediction':'Retweet'}, inplace=True)
-    submission_dataframe.rename(columns={'Retweet_with_comment':'Prediction'}, inplace=True)
-    submission_dataframe.to_csv(r'retweet_with_comment_prediction.csv',columns = ['Tweet_Id','User_Id','Prediction'],index=False)
-    submission_dataframe.rename(columns={'Prediction':'Retweet_with_comment'}, inplace=True)
-    submission_dataframe.rename(columns={'Like':'Prediction'}, inplace=True)
-    submission_dataframe.to_csv(r'like_prediction.csv',columns = ['Tweet_Id','User_Id','Prediction'],index=False)
-    submission_dataframe.rename(columns={'Prediction':'Like'}, inplace=True)
+
+    submission_files(submission_dataframe, output_dir = TestConfig._output_dir)
 
 # from logit to prob  
+
 def logit2prob(logit):
   odds = math.exp(logit)
   prob = odds / (1 + odds)
