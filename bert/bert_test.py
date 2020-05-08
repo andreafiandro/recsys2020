@@ -107,7 +107,8 @@ def main():
     # select and preprocess columns <Tweet_Id>,<User_Id>
 
     text_test_chunk, tweetid_test_chunk, user_test_chunk = preprocessing(df, args)
-    print("Number of training rows "+str(len(text_test_chunk)))
+    if _PRINT_INTERMEDIATE_LOG:
+        print("Number of training rows "+str(len(text_test_chunk)))
 
     # create the dataset objects
     
@@ -115,9 +116,11 @@ def main():
     test_data = torch.utils.data.DataLoader(test_data,batch_size=args.batch, shuffle=True, num_workers=args.workers)
 
     # move model to device
+
     model.to(device)
 
     # test dataframe 
+
     columns = ['Tweet_Id', 'User_Id','Reply','Retweet','Retweet_with_comment','Like']
     submission_dataframe = pd.DataFrame(columns=columns)
 
@@ -134,12 +137,12 @@ def main():
 
         # traspongo i logit per inserirli corettamente nel dataframe
         # così come sono i dati ora sono trasposti rispetto a come li prende dataframe
+
         logits = np.array(logits.data.tolist()).T 
 
         # dict dati per dataframe, sicuramente si può fare in maniera più bella
-        batch_data = {'Tweet_Id':list(lines[1]),'User_Id':list(lines[2]),'Reply':logits[0],'Retweet':logits[1],'Retweet_with_comment':logits[2],'Like':logits[3]}
 
-        print(batch_data)
+        batch_data = {'Tweet_Id':list(lines[1]),'User_Id':list(lines[2]),'Reply':logits[0],'Retweet':logits[1],'Retweet_with_comment':logits[2],'Like':logits[3]}
         submission_dataframe= submission_dataframe.append(pd.DataFrame(batch_data,columns=columns))
 
     if _PRINT_INTERMEDIATE_LOG:
