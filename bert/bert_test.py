@@ -68,6 +68,20 @@ def main():
         required=True,
         help="Column name for user id (e.g. \"user id\")"
     )
+    parser.add_argument(
+        "--batch",
+        default=None,
+        type=int,
+        required=True,
+        help="Batch size for the training"
+    )
+    parser.add_argument(
+        "--workers",
+        default=None,
+        type=int,
+        required=True,
+        help="Number of workers for the training"
+    )
 
     
     args = parser.parse_args()
@@ -98,28 +112,35 @@ def main():
     # create the dataset objects
     
     test_data = BertDatasetTest(xy_list=[text_test_chunk,tweetid_test_chunk,user_test_chunk])
-    test_data = torch.utils.data.DataLoader(test_data)
+    test_data = torch.utils.data.DataLoader(test_data,batch_size=args.batch, shuffle=True, num_workers=args.workers)
 
     # move model to device
     model.to(device)
 
     # test dataframe 
-    submission_dataframe = pd.DataFrame(columns=['Tweet_Id', 'User_Id','Reply','Retweet','Retweet_with_comment','Like'])
+    columns = ['Tweet_Id', 'User_Id','Reply','Retweet','Retweet_with_comment','Like']
+    submission_dataframe = pd.DataFrame(columns=columns)
 
-    # eval linea per linea da portare a batch, controllando la corrispondenza effettiva con le altre colonne
+    # eval per batch, controllare corrispondenza colonne
 
     m = nn.Sigmoid()
-    i=0
+    for lines in test_data:
+        # eval 
+        text_lines = torch.from_numpy(np.array(lines[0])).to(device)
+        logits, cls_output = model(text_lines)
 
-    for line in test_data:
-        text_line = torch.from_numpy(np.array(line[0])).to(device)
-        logits, cls_output = model(text_line)
-        logits = [(lambda x: logit2prob(x))(x) for x in logits[0]]
-        # m = nn.Sigmoid()
-        #logits = [(lambda x: m(x))(x) for x in logits[0]] # da completare con la sigmoide di torch
-        # print(logits)
-        submission_dataframe.loc[i] = [line[1][0],line[2][0]]+logits
-        i = i + 1
+        # from logits to probability
+        logits = m(logits)
+
+        # traspongo i logit per inserirli corettamente nel dataframe
+        # così come sono i dati ora sono trasposti rispetto a come li prende dataframe
+        logits = np.array(logits.data.tolist()).T 
+
+        # dict dati per dataframe, sicuramente si può fare in maniera più bella
+        batch_data = {'Tweet_Id':list(lines[1]),'User_Id':list(lines[2]),'Reply':logits[0],'Retweet':logits[1],'Retweet_with_comment':logits[2],'Like':logits[3]}
+
+        print(batch_data)
+        submission_dataframe= submission_dataframe.append(pd.DataFrame(batch_data,columns=columns))
 
     if _PRINT_INTERMEDIATE_LOG:
         print('DATASET SHAPE: '+ str(submission_dataframe.shape))
