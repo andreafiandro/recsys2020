@@ -10,7 +10,7 @@ class TrainingConfig():
 
     _num_labels = 4
 
-
+    _not_finetuning_bert = True
     _checkpoint_path = 'checkpoint/'
     _pretrained_bert = 'bert-base-multilingual-cased'
 

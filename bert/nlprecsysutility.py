@@ -124,7 +124,7 @@ class RecSysUtility:
 # utility functions by IO
 
 def submission_files(submission_dataframe, output_dir="./"):
-        submission_dataframe.to_csv(os.path.join(output_dir,'reply_prediction.csv'),columns = ['Tweet_Id','User_Id','Reply'],sep='\t',index=False, header = False)
-        submission_dataframe.to_csv(os.path.join(output_dir,'retweet_prediction.csv'),columns = ['Tweet_Id','User_Id','Retweet'],sep='\t',index=False, header = False)
-        submission_dataframe.to_csv(os.path.join(output_dir,'retweet_with_comment_prediction.csv'),columns = ['Tweet_Id','User_Id','Retweet_with_comment'],sep='\t',index=False , header = False)
-        submission_dataframe.to_csv(os.path.join(output_dir,'like_prediction.csv'),columns = ['Tweet_Id','User_Id','Like'],sep='\t',index=False, header = False)
+        submission_dataframe.to_csv(os.path.join(output_dir,'reply_prediction.csv'),columns = ['Tweet_Id','User_Id','Reply'],index=False, header = False)
+        submission_dataframe.to_csv(os.path.join(output_dir,'retweet_prediction.csv'),columns = ['Tweet_Id','User_Id','Retweet'],index=False, header = False)
+        submission_dataframe.to_csv(os.path.join(output_dir,'retweet_with_comment_prediction.csv'),columns = ['Tweet_Id','User_Id','Retweet_with_comment'],index=False , header = False)
+        submission_dataframe.to_csv(os.path.join(output_dir,'like_prediction.csv'),columns = ['Tweet_Id','User_Id','Like'],index=False, header = False)

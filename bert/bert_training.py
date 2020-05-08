@@ -303,12 +303,12 @@ def main():
     
     args = parser.parse_args()
 
-    not_bert_finetuning = None
+    not_bert_finetuning = TrainingConfig._not_finetuning_bert
 
     # Initializing a BERT model
     model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = not_bert_finetuning)
     
-    # per training incrementali, da mettere meglio nel training config o altrove
+    # per training incrementali, da mettere meglio nel training config o altrove senza fargli il caricamento del pretrained_bert
 
     if(not_bert_finetuning):
         checkpoint = torch.load(os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth'))
