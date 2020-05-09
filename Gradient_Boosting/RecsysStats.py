@@ -261,7 +261,7 @@ class RecSysStats:
         f.close()
         return
 
-   def generate_hashtag_encoding(self, validation_file):
+    def generate_hashtag_encoding(self, validation_file):
         """
             Funzione per generare un encoding di tutti gli hashtags su file
             Output: scrive su disco un file hashtags_encoding.json
