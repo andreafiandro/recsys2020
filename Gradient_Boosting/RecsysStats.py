@@ -3,6 +3,7 @@ import gc
 import logging
 from dask.diagnostics import ProgressBar
 import pandas as pd
+import json
 
 class RecSysStats:
 
@@ -184,4 +185,37 @@ class RecSysStats:
 
         return
 
+    """
+        Generazione degli encoding su tutto il dataset
+    """
 
+    def generate_user_encoding(self, validation_file):
+        """
+            Funzione per trasformare gli hash che rappresentano gli utenti in interi
+            Output: scrive su disco il file user_encoding.json
+        """
+        print('Ottengo gli user per il training')
+        training_user = self.get_all_users()
+        #print('Salvo su file...')
+        #f = open("training_user","w")
+        #f.write(training_user)
+
+        print('Ottengo gli user per il validation')
+        validation_user = self.get_validation_users(validation_file)
+        #print('Salvo su file...')
+        #f = open("validation_user","w")
+        #f.write(validation_user)
+
+        print('Merge dei due gruppi di utenti')
+        all_users = training_user.union(validation_user)
+        print('Genero encoding...')
+        user_dict = {}
+        counter = 0 
+        for i in all_users:
+            user_dict[i] = counter
+            counter += 1
+        print('Scrivo user encoding su file...')
+        f = open("user_encoding.json","w")
+        f.write(json.dumps(user_dict))
+        f.close()
+        return

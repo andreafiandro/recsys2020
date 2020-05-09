@@ -159,7 +159,6 @@ class RecSysUtility:
 
         return
 
-
     def evaluate_multi_label(self, clf, x, y):
         predictions = clf.predict_proba(x)
         lista_label = y.columns.values
@@ -494,6 +493,38 @@ class RecSysUtility:
         prauc = self.compute_prauc(y_pred, test_set.get_label())
         rce = self.compute_rce(y_pred, test_set.get_label())
         self.print_and_log('Training for {} --- PRAUC: {} / RCE: {}'.format(label, prauc, rce))
+        return
+    
+    """
+    ------------------------------------------------------------------------------------------
+    FUNZIONI PER LE MATRIX FACTORIZATION
+    ------------------------------------------------------------------------------------------
+    """
+    
+    def generate_mf_csv(self, label, output_path='//fmnas/Dataset/'):
+        """
+            Funzione per generare i 4 file di training per la matrix factorization.
+            I file conterranno 3 colonne
+                | Autore | User | Hashtags
+            Ogni riga corrisponde ad un interazione avvenuta
+        """
+        output_file =  output_file + 'mf_{}.csv'.format(label)
+        
+        if(not os.path.exists(output_file)):
+            os.system('touch {}'.format(output_file))
+        else:
+            os.system('rm {}'.format(output_file))
+            os.system('touch {}'.format(output_file))
+        c_size = 1000000
+        i = 0
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=c_size):
+            print('Ho analizzato {} righe'.format(c_size*i))
+            df_chunk = self.process_chunk_tsv(df_chunk)
+            col_label = label + '_engagement_timestamp'
+            df_chunk = df_chunk[df_chunk[col_label] > 0]
+            df_chunk = df_chunk[['User_id', 'User_id_engaging', 'Hashtags']]
+            df_chunk.to_csv(output_file, mode='a', header=False, index=False)
+            i += 1
         return
 
     """
