@@ -4,6 +4,7 @@ import logging
 from dask.diagnostics import ProgressBar
 import pandas as pd
 import json
+from tqdm import tqdm
 
 class RecSysStats:
 
@@ -98,6 +99,14 @@ class RecSysStats:
         dd_input = self.process_chunk_tsv(dd_input, isVal=True)
         list_users = dd_input['User_id_engaging'].unique().compute()
         self.print_and_log('The Validation Set has {} users'.format(list_users.shape[0]))
+        return set(list_users)
+
+    def get_validation_author(self, val_file):
+        print('I get all the authors from validation')
+        dd_input = dd.read_csv(val_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input, isVal=True)
+        list_users = dd_input['User_id'].unique().compute()
+        self.print_and_log('The Validation Set has {} authors'.format(list_users.shape[0]))
         return set(list_users)
 
 
@@ -219,3 +228,65 @@ class RecSysStats:
         f.write(json.dumps(user_dict))
         f.close()
         return
+
+    def generate_author_encoding(self, validation_file):
+        
+        """
+            Funzione per trasformare gli hash che rappresentano gli autori in interi
+            Output: scrive su disco il file author_encoding.json
+        """
+        print('Ottengo gli authors per il training')
+        training_user = self.get_all_authors()
+        #print('Salvo su file...')
+        #f = open("training_user","w")
+        #f.write(training_user)
+
+        print('Ottengo gli authors per il validation')
+        validation_user = self.get_validation_author(validation_file)
+        #print('Salvo su file...')
+        #f = open("validation_user","w")
+        #f.write(validation_user)
+
+        print('Merge dei due gruppi di autori')
+        all_authors = training_user.union(validation_user)
+        print('Genero encoding...')
+        authors_dict = {}
+        counter = 0 
+        for i in all_authors:
+            authors_dict[i] = counter
+            counter += 1
+        print('Scrivo author encoding su file...')
+        f = open("author_encoding.json","w")
+        f.write(json.dumps(authors_dict))
+        f.close()
+        return
+
+    def generate_hashtag_encoding(self, validation_file):
+        """
+            Funzione per generare un encoding di tutti gli hashtags su file 
+            Output: scrive su disco un file hashtags_encoding.json
+        """
+        print('I get all the hashtags')
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        print('Tolgo quelli nulli e li splitto')
+        hashtags = dd_input[~dd_input['Hashtags'].isna()].apply(lambda x: x.split('|')).compute()
+        lista_hashtag = hashtags.to_list()
+        print('Creo il set di hashtags unici')
+        set_hashtag = {}
+        for h in tqdm(lista_hashtag):
+            set_hashtag.update(h)
+
+        print('Genero encoding...')
+        hashtags_dic = {}
+        counter = 0 
+        for i in set_hashtag:
+            hashtags_dic[i] = counter
+            counter += 1
+        print('Scrivo hashtags encoding su file...')
+        f = open("hashtags_encoding.json","w")
+        f.write(json.dumps(hashtags_dic))
+        f.close()
+        
+        return set_hashtag
+        

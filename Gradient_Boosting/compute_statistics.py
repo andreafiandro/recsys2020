@@ -1,8 +1,9 @@
-from RecsysUtility import RecSysUtility
-#rcStats = RecSysStats('/mnt/val.tsv')
+from RecsysStats import RecSysStats
+rcStats = RecSysStats('/mnt/training.tsv')
+rcStats.generate_user_encoding('/mnt/val.tsv')
 #rcStats.get_all_retweet('/mnt/val.tsv')
-rsUtils = RecSysUtility('/mnt/val.tsv')
-rsUtils.exploit_leaks_retweet('prediction_Retweet.csv', 'retweet_100.csv')
+#rsUtils = RecSysUtility('/mnt/val.tsv')
+#rsUtils.exploit_leaks_retweet('prediction_Retweet.csv', 'retweet_100.csv')
 #rcUtils.count_n_lines()
 #rcUtils.count_n_tweets(isVal=True)
 #rcUtils.user_or_author(isVal=True)
