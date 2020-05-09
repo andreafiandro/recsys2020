@@ -261,25 +261,35 @@ class RecSysStats:
         f.close()
         return
 
-    def generate_hashtag_encoding(self, validation_file):
+   def generate_hashtag_encoding(self, validation_file):
         """
-            Funzione per generare un encoding di tutti gli hashtags su file 
+            Funzione per generare un encoding di tutti gli hashtags su file
             Output: scrive su disco un file hashtags_encoding.json
         """
-        print('I get all the hashtags')
+        print('I get all the hashtags from training')
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         print('Tolgo quelli nulli e li splitto')
-        hashtags = dd_input[~dd_input['Hashtags'].isna()].apply(lambda x: x.split('|')).compute()
+        hashtags = dd_input[~dd_input['Hashtags'].isna()].compute()
         lista_hashtag = hashtags.to_list()
         print('Creo il set di hashtags unici')
         set_hashtag = {}
         for h in tqdm(lista_hashtag):
-            set_hashtag.update(h)
+            set_hashtag.update(h.split('|'))
+
+        print('I get all the hashtags from validation')
+        dd_input = dd.read_csv(validation_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        print('Tolgo quelli nulli e li splitto')
+        hashtags = dd_input[~dd_input['Hashtags'].isna()].compute()
+        lista_hashtag = hashtags.to_list()
+        print('Continuo il set di hashtags unici')
+        for h in tqdm(lista_hashtag):
+            set_hashtag.update(h.split('|'))
 
         print('Genero encoding...')
         hashtags_dic = {}
-        counter = 0 
+        counter = 0
         for i in set_hashtag:
             hashtags_dic[i] = counter
             counter += 1
@@ -287,6 +297,5 @@ class RecSysStats:
         f = open("hashtags_encoding.json","w")
         f.write(json.dumps(hashtags_dic))
         f.close()
-        
+
         return set_hashtag
-        

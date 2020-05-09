@@ -501,13 +501,15 @@ class RecSysUtility:
     ------------------------------------------------------------------------------------------
     """
     
-    def generate_mf_csv(self, label, output_path='//fmnas/Dataset/'):
+    def generate_mf_csv(self, label, training_rows, output_path='./', encoded = True, c_size = 1000000):
         """
             Funzione per generare i 4 file di training per la matrix factorization.
             I file conterranno 3 colonne
                 | Autore | User | Hashtags
             Ogni riga corrisponde ad un interazione avvenuta
         """
+        
+        print('Genero il training per la label {}'.format(label))
         output_file =  output_file + 'mf_{}.csv'.format(label)
         
         if(not os.path.exists(output_file)):
@@ -515,17 +517,52 @@ class RecSysUtility:
         else:
             os.system('rm {}'.format(output_file))
             os.system('touch {}'.format(output_file))
-        c_size = 1000000
+        
         i = 0
-        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, chunksize=c_size):
+        for df_chunk in pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=training_rows, chunksize=c_size):
             print('Ho analizzato {} righe'.format(c_size*i))
             df_chunk = self.process_chunk_tsv(df_chunk)
             col_label = label + '_engagement_timestamp'
             df_chunk = df_chunk[df_chunk[col_label] > 0]
             df_chunk = df_chunk[['User_id', 'User_id_engaging', 'Hashtags']]
+            if(encoded): # Applico l'encoding
+                # User encoding
+                json_user = open("user_encoding.json", "r")
+                user_dic = json.load(json_user)
+                df_chunk['User_id_engaging'] = df_chunk['User_id_engaging'].map(user_dic)
+
+                # Author encoding
+                json_author = open("author_encoding.json", "r")
+                author_dic = json.load(json_author)
+                df_chunk['User_id'] = df_chunk['User_id'].map(author_dic)
+
+                # Hashtags encoding
+                json_hashtag = open("hashtags_encoding.json", "r")
+                hashtags_dic = json.load(json_hashtag)
+                df_chunk['Hashtags'] = df_chunk['Hashtags'].apply(lambda x: self.encode_ht(x, hashtags_dic))
+
+                json_author.close()
+                json_hashtag.close()
+                json_user.close()
             df_chunk.to_csv(output_file, mode='a', header=False, index=False)
             i += 1
         return
+
+    def encode_ht(self, ht, ht_dict):
+        encoded_list = []
+        ht_list = ht.split('|')
+        for h in ht_list:
+            encoded_list.append(ht_dict.get(h))
+        return encoded_list
+    
+    def mf_training(self, label):
+        training_file = 'mf_{}.csv'.format(label)
+        df_train = pd.read_csv(training_file, header=None)
+        df_train.columns = ['Author', 'User', 'Hashtags']
+        df_train.loc[:, 'Hashtags'] = df_train['Hashtags'].apply(lambda x: x.split('|') if x != '0' else [])
+        
+
+
 
     """
     ------------------------------------------------------------------------------------------
