@@ -283,7 +283,7 @@ class RecSysStats:
 
         print('I get all the hashtags from validation')
         dd_input = dd.read_csv(validation_file, sep='\u0001', header=None)
-        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = self.process_chunk_tsv(dd_input, isVal=True)
         print('Tolgo quelli nulli e li splitto')
         dd_input = dd_input[['Hashtags']]
         hashtags = dd_input[~dd_input['Hashtags'].isna()]['Hashtags'].compute()

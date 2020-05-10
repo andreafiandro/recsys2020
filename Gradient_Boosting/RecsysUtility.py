@@ -547,8 +547,7 @@ class RecSysUtility:
 
     def encode_ht(self, ht, ht_dict):
         encoded_list = []
-        ht_list = ht.split('|')
-        for h in ht_list:
+        for h in ht:
             encoded_list.append(ht_dict.get(h))
         return encoded_list
     
