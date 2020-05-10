@@ -274,10 +274,12 @@ class RecSysStats:
         hashtags = dd_input[~dd_input['Hashtags'].isna()]['Hashtags'].compute()
         lista_hashtag = hashtags.to_list()
         print('Creo il set di hashtags unici')
-        set_hashtag = {}
+        set_hashtag = set()
         for h in tqdm(lista_hashtag):
             if(isinstance(h, str)):
-                set_hashtag.update(h.split('|'))
+                line_ht = h.split('|')
+                for a in line_ht:
+                    set_hashtag.add(a)
 
         print('I get all the hashtags from validation')
         dd_input = dd.read_csv(validation_file, sep='\u0001', header=None)
@@ -289,7 +291,9 @@ class RecSysStats:
         print('Continuo il set di hashtags unici')
         for h in tqdm(lista_hashtag):
             if(isinstance(h, str)):
-                set_hashtag.update(h.split('|'))
+                line_ht = h.split('|')
+                for a in line_ht:
+                    set_hashtag.add(a)
 
         print('Genero encoding...')
         hashtags_dic = {}
