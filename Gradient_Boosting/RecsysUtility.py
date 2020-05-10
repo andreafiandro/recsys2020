@@ -171,9 +171,6 @@ class RecSysUtility:
         return
 
 
-
-
-
     def xgboost_training_memory(self, label, training_folder='/datadrive/xgb/'):
         """
             This function is used to train a gradient boosting model by means of incremental learning.
@@ -510,7 +507,7 @@ class RecSysUtility:
         """
         
         print('Genero il training per la label {}'.format(label))
-        output_file =  output_file + 'mf_{}.csv'.format(label)
+        output_file =  output_path + 'mf_{}.csv'.format(label)
         
         if(not os.path.exists(output_file)):
             os.system('touch {}'.format(output_file))
