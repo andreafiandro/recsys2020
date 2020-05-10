@@ -270,19 +270,21 @@ class RecSysStats:
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         print('Tolgo quelli nulli e li splitto')
+        dd_input = dd_input[['Hashtags']]
         hashtags = dd_input[~dd_input['Hashtags'].isna()]['Hashtags'].compute()
         lista_hashtag = hashtags.to_list()
         print('Creo il set di hashtags unici')
         set_hashtag = {}
         for h in tqdm(lista_hashtag):
-            set_hashtag.update(h.split('|'))
+            if(isinstance(h, str)):
+                set_hashtag.update(h.split('|'))
 
         print('I get all the hashtags from validation')
         dd_input = dd.read_csv(validation_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         print('Tolgo quelli nulli e li splitto')
+        dd_input = dd_input[['Hashtags']]
         hashtags = dd_input[~dd_input['Hashtags'].isna()]['Hashtags'].compute()
-        lista_hashtag = hashtags.to_list()
         
         print('Continuo il set di hashtags unici')
         for h in tqdm(lista_hashtag):
