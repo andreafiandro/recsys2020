@@ -550,7 +550,7 @@ class RecSysUtility:
         if(ht == 0):
             return []
         else:
-            for h in ht:
+            for h in ht.split('|'):
                 encoded_list.append(ht_dict.get(h))
             return encoded_list
     
