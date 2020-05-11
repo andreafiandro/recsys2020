@@ -55,7 +55,6 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
         print('-' * 10)
         print('Epoch {}/{}'.format(epoch, epochs - 1))
 
-        running_rce = 0.0
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
@@ -65,7 +64,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
 
             running_loss = 0.0
             correct_output_num = 0
-
+            eval_logits = eval_targets = None
             # Iterate over data
             for inputs, targets in dataloaders_dict[phase]:
                 
@@ -92,7 +91,12 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                         optimizer.step()
                         scheduler.step()
                     else:
-                        running_rce += rce_loss(logits, targets)
+                        if eval_logits is not None:
+                            eval_logits = torch.cat((eval_logits,logits))
+                            eval_targets = torch.cat((eval_targets, targets))
+                        else:
+                            eval_logits = logits
+                            eval_targets = targets
                         
                     #statistics
                     running_loss += loss.item() * inputs.size(0)
@@ -109,6 +113,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
             #print('{} output_acc: {:.4f}'.format(phase, output_acc))
 
             if phase == 'val':
+                running_rce = rce_loss(eval_logits, eval_targets)
                 print('running rce loss:', running_rce)
                 epoch_rce = torch.sum(running_rce)
 
@@ -128,8 +133,8 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     model.to(device)
                     
                 if epoch_rce < best_rce:
-                    print('new best rce of {}'.format(epoch_rce),
-                        'improved over previous {}'.format(best_rce))
+                    print('new best overall rce of {:.4f}'.format(epoch_rce),
+                        'improved over previous {:.4f}'.format(best_rce))
                     best_rce = epoch_rce
                     best_rce_by_label = running_rce
                     # print('rce eval loss: {}'.format(epoch_rce))
@@ -140,8 +145,8 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
     print('Training complete in {:.0f}m {:.0f}s'.format(
     time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc (loss): {:4f}'.format(float(best_loss)))
-    print('Best val rce (loss): '.format(best_rce))
-    print('Best val rce (loss) by label: ', best_rce_by_label)
+    print('Best val overall rce (loss): {:.4f}'.format(best_rce))
+    print('Best val overall rce (loss) by label: ', best_rce_by_label)
     return model.load_state_dict(torch.load(saving_file))
 
 
@@ -327,7 +332,7 @@ def main():
     if _PRINT_INTERMEDIATE_LOG:
         print(model.config)
 
-    df = pd.read_csv(args.data)
+    df = pd.read_csv(args.data, nrows=1000)
     if _PRINT_INTERMEDIATE_LOG:
         print('DATASET SHAPE: '+ str(df.shape))
         print('HEAD FUNCTION: '+ str(df.head()))
