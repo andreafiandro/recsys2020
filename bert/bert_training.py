@@ -332,7 +332,7 @@ def main():
     if _PRINT_INTERMEDIATE_LOG:
         print(model.config)
 
-    df = pd.read_csv(args.data, nrows=1000)
+    df = pd.read_csv(args.data)
     if _PRINT_INTERMEDIATE_LOG:
         print('DATASET SHAPE: '+ str(df.shape))
         print('HEAD FUNCTION: '+ str(df.head()))
