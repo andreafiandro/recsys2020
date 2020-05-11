@@ -2,6 +2,8 @@
 *.dat
 *.log
 *.json
+recsys2020_venv/
+recsys_venv/
 funzioni_di_prova.py
 __pycache__
 .ipynb_checkpoints
