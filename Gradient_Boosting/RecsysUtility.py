@@ -19,6 +19,10 @@ from RecsysStats import RecSysStats
 from sklearn.multiclass import OneVsRestClassifier
 from xgboost.dask import DaskXGBClassifier
 from dask.distributed import Client, LocalCluster
+from lightfm import LightFM
+import dask.dataframe as dd
+from scipy import coo_matrix
+
 
 class RecSysUtility:
 
@@ -556,9 +560,30 @@ class RecSysUtility:
     
     def mf_training(self, label):
         training_file = 'mf_{}.csv'.format(label)
-        df_train = pd.read_csv(training_file, header=None)
-        df_train.columns = ['Author', 'User', 'Hashtags']
-        df_train.loc[:, 'Hashtags'] = df_train['Hashtags'].apply(lambda x: x.split('|') if x != '0' else [])
+        dd_train = dd.read_csv(training_file, header=None)
+        dd_train.columns = ['Author', 'User', 'Hashtags']
+        dd_interaction = dd_train[['Author', 'User']]
+        dd_interaction['Value'] = 1
+        # Genero la sparse matrix con le interazioni
+        print('Group by User e Author')
+        df_interactions = dd_interaction.groupby(['User', 'Author'])['Value'].sum().reset_index().compute()
+        print('Genero la sparse matrix')
+        interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))        
+        
+        print('Genero le features degli autori')
+        df_author = dd_train[['Author', 'Hashtags']].explode('Hashtags').drop_duplicates().compute()
+        df_author['Value'] = 1
+        print('Genero la sparse matrix')
+        author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtags)))   
+
+        print('Training MF')
+        model = LightFM(no_components=300, loss='warp-kos', learning_rate=0.1)
+        model.fit(interactions, epochs=200, num_threads=4, item_features=author_features)
+
+
+        print('Salvo il modello')
+        pickle.dump(model, open('mf_model_{}'.format(label), "wb"))
+        return
         
 
 

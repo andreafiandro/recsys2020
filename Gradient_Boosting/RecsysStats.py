@@ -307,3 +307,37 @@ class RecSysStats:
         f.close()
 
         return set_hashtag
+
+    def generate_author_features(self):
+        """
+            Creo una sparse matrix in cui ci sono tutti gli hashtag utilizzati da ogni author
+        """
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = dd_input[['User', 'Hashtags']]
+        dd_input['Hashtags'] = dd_input.dropna(subset=['Hashtags'])
+        dd_input['Hashtags'] = dd_input['Hashtags'].apply(lambda x: x.split('|'))
+        dd_input['Hashtags'] = dd_input['Hashtags'].explode().compute()
+        dd_input = dd_input.drop_duplicates()
+        print(dd_input.head())
+
+        print('Faccio encoding degli autori')
+        
+        json_author = open("author_encoding.json", "r")
+        author_dic = json.load(json_author)
+        dd_input['User'] = dd_input['User'].map(author_dic)
+
+        print('Faccio encoding degli hashtags')
+        json_hashtag = open("hashtag_encoding.json", "r")
+        hashtag_dic = json.load(json_hashtag)
+        dd_input['Hashtags'] = dd_input['Hashtags'].map(author_dic)
+
+        dd_input.to_csv('author_hashtag_mapping.csv', index=False, header = False)
+
+        return
+
+
+    #def generate_user_features():
+        """
+            Creo una sparse matrix in cui ci sono tutte le lingue con cui ha interagito ogni user
+        """
