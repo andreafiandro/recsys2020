@@ -10,3 +10,4 @@ __pycache__
 cacheprefix*
 dtrain.*
 Notebook/recsysUtility.py
+*.pickle
