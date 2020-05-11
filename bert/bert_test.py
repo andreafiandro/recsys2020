@@ -113,7 +113,7 @@ def main():
     # create the dataset objects
     
     test_data = BertDatasetTest(xy_list=[text_test_chunk,tweetid_test_chunk,user_test_chunk])
-    test_data = torch.utils.data.DataLoader(test_data,batch_size=args.batch, shuffle=True, num_workers=args.workers)
+    test_data = torch.utils.data.DataLoader(test_data,batch_size=args.batch, shuffle=False, num_workers=args.workers)
 
     # move model to device
 
