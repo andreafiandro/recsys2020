@@ -18,6 +18,7 @@ from torch.optim import lr_scheduler
 from transformers import BertForSequenceClassification
 
 from RCE import Multi_Label_RCE_Loss
+from cnn_model import TEXT_ENSEMBLE, CNN
 
 _PRINT_INTERMEDIATE_LOG = True
 # Choose GPU if is available, otherwise cpu
@@ -49,7 +50,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
     best_loss = math.inf
     best_rce = math.inf
     best_rce_by_label = None
-    saving_file = os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth')
+    saving_file = os.path.join(TrainingConfig._checkpoint_path, 'cnn_model_test.pth')
     
     for epoch in range(epochs):
         print('-' * 10)
@@ -139,8 +140,6 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     best_rce_by_label = running_rce
                     # print('rce eval loss: {}'.format(epoch_rce))
                
-
-
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
     time_elapsed // 60, time_elapsed % 60))
@@ -212,28 +211,6 @@ def preprocessing(df, args):
     y_test_retweet_comment = y_test['Retweet_with_comment_engagement_timestamp'].values.tolist()
     y_test_like = y_test['Like_engagement_timestamp'].values.tolist()
 
-    ##########################################################################
-    # pandas.get_dummies
-    # Convert categorical variable into dummy/indicator variables.
-    # Examples
-    #
-    # s = pd.Series(list('abca'))
-    # pd.get_dummies(s)
-    #    a  b  c
-    # 0  1  0  0
-    # 1  0  1  0
-    # 2  0  0  1
-    # 3  1  0  0
-    # pd.get_dummies(s).values.tolist()
-    # [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]]
-    #
-    # ... it is like a one hot encoding for labels
-    ##########################################################################
-
-    #y_train = pd.get_dummies(y_train).values.tolist()
-    #y_test = pd.get_dummies(y_test).values.tolist()
-
-
     return [x_train, y_train_reply, y_train_retweet, y_train_retweet_comment, y_train_like], [x_test, y_test_reply, y_test_retweet, y_test_retweet_comment, y_test_like] , classes_support, test_positive_rates
 
 
@@ -269,14 +246,6 @@ def main():
         required=True,
         help="Column name for bert tokens (e.g. \"text tokens\")"
     )
-    # questo non dovrebbe più servire con la multilabel classification
-    parser.add_argument(
-        "--predcolumn",
-        default=None,
-        type=str,
-        required=False,
-        help="Column name for prediction (e.g. \"Reply_angagement_timestamp\" etc.)"
-    )
     parser.add_argument(
         "--epochs",
         default=None,
@@ -311,15 +280,18 @@ def main():
     not_bert_finetuning = TrainingConfig._not_finetuning_bert
 
     # Initializing a BERT model
-    model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = not_bert_finetuning)
+    bert_model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = not_bert_finetuning)
     
     # per training incrementali, da mettere meglio nel training config o altrove senza fargli il caricamento del pretrained_bert
 
     if(not_bert_finetuning):
         checkpoint = torch.load(os.path.join(TrainingConfig._checkpoint_path, 'bert_model_test.pth'))
-        model.load_state_dict(checkpoint)
+        bert_model.load_state_dict(checkpoint)
+        bert_model.freeze_layers(bert_model.bert)
+        bert_model.freeze_layers(bert_model.classifier)
     
-
+    cnn = CNN()
+    model = TEXT_ENSEMBLE(bert = bert_model, model_b = cnn)
     ##########################################################################
     # Accessing the model configuration
     # if you need to modify these parameters, just create a new configuration:
@@ -331,8 +303,8 @@ def main():
     ##########################################################################
     if _PRINT_INTERMEDIATE_LOG:
         print(model.config)
-
-    df = pd.read_csv(args.data)
+        
+    df = pd.read_csv(args.data) #Put here nrows = ??? for test purposes
     if _PRINT_INTERMEDIATE_LOG:
         print('DATASET SHAPE: '+ str(df.shape))
         print('HEAD FUNCTION: '+ str(df.head()))
@@ -365,13 +337,7 @@ def main():
     # move model to device before optimizer instantiation
     model.to(device)
 
-    # create optimizer with different learning rates per layer
-    optimizer = optim.Adam(
-        [
-            {'params': model.bert.parameters(), 'lr': TrainingConfig._bert_lr},
-            {'params': model.classifier.parameters(), 'lr': TrainingConfig._cls_lr}
-        ]
-    )
+    optimizer = optim.Adam(model.parameters())
 
     # instantiate CrossEntropy with class penalization based on class support
 

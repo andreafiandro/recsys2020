@@ -113,7 +113,7 @@ def main():
     # create the dataset objects
     
     test_data = BertDatasetTest(xy_list=[text_test_chunk,tweetid_test_chunk,user_test_chunk])
-    test_data = torch.utils.data.DataLoader(test_data,batch_size=args.batch, shuffle=False, num_workers=args.workers)
+    test_data = torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=False, num_workers=args.workers)
 
     # move model to device
 
@@ -126,14 +126,14 @@ def main():
 
     # eval per batch, controllare corrispondenza colonne
 
-    m = nn.Sigmoid()
+    #m = nn.Sigmoid() - Deprecated
     for lines in test_data:
         # eval 
         text_lines = torch.from_numpy(np.array(lines[0])).to(device)
         logits, cls_output = model(text_lines)
 
         # from logits to probability
-        logits = m(logits)
+        logits = torch.sigmoid(logits)
 
         # traspongo i logit per inserirli corettamente nel dataframe
         # così come sono i dati ora sono trasposti rispetto a come li prende dataframe
@@ -141,7 +141,7 @@ def main():
         logits = np.array(logits.data.tolist()).T 
 
         # dict dati per dataframe, sicuramente si può fare in maniera più bella
-
+        # Probably not a meno di usare dask al posto di pandas
         batch_data = {'Tweet_Id':list(lines[1]),'User_Id':list(lines[2]),'Reply':logits[0],'Retweet':logits[1],'Retweet_with_comment':logits[2],'Like':logits[3]}
         submission_dataframe= submission_dataframe.append(pd.DataFrame(batch_data,columns=columns))
 
