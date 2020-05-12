@@ -325,7 +325,7 @@ class RecSysStats:
 
         print('Genero le features sul validation set')
         dd_val = dd.read_csv(validation, sep='\u0001', header=None)
-        dd_val = self.process_chunk_tsv(dd_val)
+        dd_val = self.process_chunk_tsv(dd_val, isVal=True)
         dd_val = dd_val[['User_id', 'Hashtags']]
         dd_val = dd_val.dropna(subset=['Hashtags'])
         dd_val = dd_val[dd_val['Hashtags'] != 0]
