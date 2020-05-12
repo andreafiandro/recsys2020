@@ -336,8 +336,9 @@ class RecSysStats:
 
 
         print('Concateno i due df')
-        dd_input = pd.concat(dd_val, axis=0, ignore_index=True)
-
+        dd_input = pd.concat([dd_input, dd_val], axis=0, ignore_index=True)
+        
+        dd_input = dd_input.drop_duplicates()
         print('Faccio encoding degli autori')
         
         json_author = open("author_encoding.json", "r")
