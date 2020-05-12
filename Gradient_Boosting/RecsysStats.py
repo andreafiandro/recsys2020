@@ -353,7 +353,7 @@ class RecSysStats:
         language_dic = {}
         counter = 0
         for i in set_language:
-            hashtags_dic[i] = counter
+            language_dic[i] = counter
             counter += 1
         print('Scrivo Language encoding su file...')
         f = open("language_encoding.json","w")
