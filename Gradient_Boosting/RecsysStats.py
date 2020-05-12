@@ -449,8 +449,8 @@ class RecSysStats:
         print('Faccio encoding delle lingue')
         json_language = open("language_encoding.json", "r")
         language_dic = json.load(json_language)
-        dd_input['Language'] = dd_input['Language'].map(json_language)
-
+        dd_input['Language'] = dd_input['Language'].map(language_dic)
+        # Text IO Wrapper is not callable??
         dd_input.to_csv('user_language_mapping.csv', index=False, header = False)
 
         return
