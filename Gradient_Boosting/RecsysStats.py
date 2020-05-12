@@ -317,7 +317,7 @@ class RecSysStats:
         dd_input = dd_input[['User_id', 'Hashtags']]
         dd_input = dd_input.dropna(subset=['Hashtags'])
         dd_input['Hashtags'] = dd_input['Hashtags'].apply(lambda x: [] if(x == 0) else x.split('|'))
-        dd_input['Hashtags'] = dd_input['Hashtags'].explode().compute()
+        dd_input = dd_input.explode('Hashtags').compute()
         dd_input = dd_input.drop_duplicates()
         print(dd_input.head())
 
