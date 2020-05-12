@@ -92,6 +92,13 @@ class RecSysStats:
         self.print_and_log('There are {} action of type {}'.format(df_not_null.shape[0], label))
         return
 
+    def count_pseudo_negative(self):
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        df = self.process_chunk_tsv(dd_input)
+        df_pseudo_negative = df[df['Reply_engagement_timestamp'].isna() & df['Retweet_engagement_timestamp'].isna() & df['Retweet_with_comment_engagement_timestamp'].isna() & df['Like_engagement_timestamp'].isna()].compute()
+        self.print_and_log('There are {} pseudo negative'.format(df_pseudo_negative.shape[0]))
+        return
+
     
     def get_validation_users(self, val_file):
         print('I get all the users from validation')
