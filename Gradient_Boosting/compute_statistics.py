@@ -1,6 +1,6 @@
 from RecsysStats import RecSysStats
 rcStats = RecSysStats('/mnt/training.tsv')
-rcStats.generate_author_features()
+rcStats.generate_author_features('/mnt/val.tsv')
 #rcStats.get_all_retweet('/mnt/val.tsv')
 #rsUtils = RecSysUtility('/mnt/val.tsv')
 #rsUtils.exploit_leaks_retweet('prediction_Retweet.csv', 'retweet_100.csv')

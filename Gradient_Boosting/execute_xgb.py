@@ -3,7 +3,7 @@ import pandas as pd
 
 label_cols = ['Reply', 'Retweet_with_comment', 'Retweet', 'Like']
 
-rsUtils = RecSysUtility('./mnt/training.tsv')
+rsUtils = RecSysUtility('/mnt/training.tsv')
 
 rsUtils.xgboost_multilabel()
 rsUtils.generate_submission_multilabel('/home/andreafiandro/NAS/val.tsv')

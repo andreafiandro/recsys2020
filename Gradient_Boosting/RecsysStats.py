@@ -308,20 +308,35 @@ class RecSysStats:
 
         return set_hashtag
 
-    def generate_author_features(self):
+    def generate_author_features(self, validation):
         """
             Creo una sparse matrix in cui ci sono tutti gli hashtag utilizzati da ogni author
         """
+        print('Genero le features sul training set')
         dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
         dd_input = self.process_chunk_tsv(dd_input)
         dd_input = dd_input[['User_id', 'Hashtags']]
         dd_input = dd_input.dropna(subset=['Hashtags'])
-        dd_input['Hashtags'] = dd_input['Hashtags'].apply(lambda x: [] if(x == 0) else x.split('|'))
+        dd_input = dd_input[dd_input['Hashtags'] != 0]
+        dd_input['Hashtags'] = dd_input['Hashtags'].apply(lambda x: x.split('|') if(isinstance(x, str)) else [])
         dd_input = dd_input.explode('Hashtags')
         dd_input = dd_input.dropna(subset=['Hashtags'])
         dd_input = dd_input.drop_duplicates().compute()
-        # Devo togliere i Nan
-        print(dd_input.head())
+
+        print('Genero le features sul validation set')
+        dd_val = dd.read_csv(validation, sep='\u0001', header=None)
+        dd_val = self.process_chunk_tsv(dd_val)
+        dd_val = dd_val[['User_id', 'Hashtags']]
+        dd_val = dd_val.dropna(subset=['Hashtags'])
+        dd_val = dd_val[dd_val['Hashtags'] != 0]
+        dd_val['Hashtags'] = dd_val['Hashtags'].apply(lambda x: x.split('|') if(isinstance(x, str)) else [])
+        dd_val = dd_val.explode('Hashtags')
+        dd_val = dd_val.dropna(subset=['Hashtags'])
+        dd_val = dd_val.drop_duplicates().compute()
+
+
+        print('Concateno i due df')
+        dd_input = pd.concat(dd_val, axis=0, ignore_index=True)
 
         print('Faccio encoding degli autori')
         
@@ -332,7 +347,7 @@ class RecSysStats:
         print('Faccio encoding degli hashtags')
         json_hashtag = open("hashtag_encoding.json", "r")
         hashtag_dic = json.load(json_hashtag)
-        dd_input['Hashtags'] = dd_input['Hashtags'].map(author_dic)
+        dd_input['Hashtags'] = dd_input['Hashtags'].map(hashtag_dic)
 
         dd_input.to_csv('author_hashtag_mapping.csv', index=False, header = False)
 
