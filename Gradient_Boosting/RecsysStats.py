@@ -444,7 +444,7 @@ class RecSysStats:
         
         json_user = open("user_encoding.json", "r")
         user_dic = json.load(json_user)
-        dd_input['User_id'] = dd_input['User_id'].map(user_dic)
+        dd_input['User_id_engaging'] = dd_input['User_id_engaging'].map(user_dic)
 
         print('Faccio encoding delle lingue')
         json_language = open("language_encoding.json", "r")

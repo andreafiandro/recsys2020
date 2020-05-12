@@ -1,6 +1,6 @@
 from RecsysStats import RecSysStats
 rcStats = RecSysStats('/mnt/training.tsv')
-rcStats.generate_language_encoding('/mnt/val.tsv')
+#rcStats.generate_language_encoding('/mnt/val.tsv')
 rcStats.generate_user_features('/mnt/val.tsv')
 rcStats.count_pseudo_negative()
 #rcStats.get_all_retweet('/mnt/val.tsv')
