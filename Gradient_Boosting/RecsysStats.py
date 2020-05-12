@@ -308,6 +308,53 @@ class RecSysStats:
 
         return set_hashtag
 
+    def generate_language_encoding(self, validation_file):
+        """
+            Funzione per generare un encoding di tutti gli hashtags su file
+            Output: scrive su disco un file language_encoding.json
+        """
+        print('I get all the language from training')
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        print('Tolgo quelli nulli e li splitto')
+        dd_input = dd_input[['Language']]
+        languages = dd_input[~dd_input['Language'].isna()]['Language'].compute()
+        lista_languages = languages.to_list()
+        print('Creo il set di Language unici')
+        set_language = set()
+        for h in tqdm(lista_languages):
+            if(isinstance(h, str)):
+                line_ht = h.split('|')
+                for a in line_ht:
+                    set_language.add(a)
+
+        print('I get all the Language from validation')
+        dd_input = dd.read_csv(validation_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input, isVal=True)
+        print('Tolgo quelli nulli e li splitto')
+        dd_input = dd_input[['Language']]
+        languages = dd_input[~dd_input['Language'].isna()]['Language'].compute()
+        
+        print('Continuo il set di Language unici')
+        for h in tqdm(lista_languages):
+            if(isinstance(h, str)):
+                line_ht = h.split('|')
+                for a in line_ht:
+                    set_language.add(a)
+
+        print('Genero encoding...')
+        language_dic = {}
+        counter = 0
+        for i in set_language:
+            hashtags_dic[i] = counter
+            counter += 1
+        print('Scrivo Language encoding su file...')
+        f = open("language_encoding.json","w")
+        f.write(json.dumps(language_dic))
+        f.close()
+
+        return language_dic
+
     def generate_author_features(self, validation):
         """
             Creo una sparse matrix in cui ci sono tutti gli hashtag utilizzati da ogni author
@@ -337,7 +384,7 @@ class RecSysStats:
 
         print('Concateno i due df')
         dd_input = pd.concat([dd_input, dd_val], axis=0, ignore_index=True)
-        
+
         dd_input = dd_input.drop_duplicates()
         print('Faccio encoding degli autori')
         
@@ -355,7 +402,48 @@ class RecSysStats:
         return
 
 
-    #def generate_user_features():
+    def generate_user_features(self, validation):
         """
             Creo una sparse matrix in cui ci sono tutte le lingue con cui ha interagito ogni user
         """
+        print('Genero le features sul training set')
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = dd_input[['User_id_engaging', 'Language']]
+        dd_input = dd_input.dropna(subset=['Language'])
+        dd_input = dd_input[dd_input['Language'] != 0]
+        dd_input['Language'] = dd_input['Language'].apply(lambda x: x.split('|') if(isinstance(x, str)) else [])
+        dd_input = dd_input.explode('Language')
+        dd_input = dd_input.dropna(subset=['Language'])
+        dd_input = dd_input.drop_duplicates().compute()
+
+        print('Genero le features sul validation set')
+        dd_val = dd.read_csv(validation, sep='\u0001', header=None)
+        dd_val = self.process_chunk_tsv(dd_val, isVal=True)
+        dd_val = dd_val[['User_id_engaging', 'Language']]
+        dd_val = dd_val.dropna(subset=['Language'])
+        dd_val = dd_val[dd_val['Language'] != 0]
+        dd_val['Language'] = dd_val['Language'].apply(lambda x: x.split('|') if(isinstance(x, str)) else [])
+        dd_val = dd_val.explode('Language')
+        dd_val = dd_val.dropna(subset=['Language'])
+        dd_val = dd_val.drop_duplicates().compute()
+
+
+        print('Concateno i due df')
+        dd_input = pd.concat([dd_input, dd_val], axis=0, ignore_index=True)
+        
+        dd_input = dd_input.drop_duplicates()
+        print('Faccio encoding degli user')
+        
+        json_user = open("user_encoding.json", "r")
+        user_dic = json.load(json_user)
+        dd_input['User_id'] = dd_input['User_id'].map(user_dic)
+
+        print('Faccio encoding delle lingue')
+        json_language = open("language_encoding.json", "r")
+        language_dic = json.load(json_language)
+        dd_input['Language'] = dd_input['Language'].map(json_language)
+
+        dd_input.to_csv('user_language_mapping.csv', index=False, header = False)
+
+        return
