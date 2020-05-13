@@ -579,27 +579,39 @@ class RecSysUtility:
         df_author = pd.read_csv('author_hashtag_mapping.csv', header=None)
         df_author.columns =  ['Author', 'Hashtag']
 
-        print('Pulisco gli autori che non hanno interazioni')
-        df_author = df_author[df_author['Author'].isin(set_authors)]
+        print('Prendo solo gli autori delle interazioni')
+        #df_author = df_author[df_author['Author'].isin(set_authors)]
+        df_author = df_interactions['Author'].merge(df_author['Author'], how='left', left_on='Author', right_on='Author')
+        print('Autori utili')
+        print(df_author.head())
+        df_author = df_author[['Author', 'Hashtag']]
+
+
         print('Ho le features per  {} autori / Tot Autori {}'.format(df_author.shape[0], len(set_authors)))
 
-        df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
+        #df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
+        df_author['Hashtag'].fillna(0, inplace=True)
         df_author['Author'] = df_author['Author'].astype('int64')
         df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
         df_author['Value'] = 1
         
         print('Genero la sparse matrix')
         author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
-
+        
         print('Genero le features per gli utenti')
         df_users = pd.read_csv('user_language_mapping.csv', header=None)
         df_users.columns = ['User', 'Language']
 
         print('Pulisco gli utenti che non hanno interazioni')
-        df_users = df_users[df_users['Author'].isin(set_users)]
+        #df_users = df_users[df_users['Author'].isin(set_users)]
+        df_users = df_interactions['User'].merge(df_users['User'], how='left', left_on='User', right_on='User')
+        print('Utenti utili')
+        print(df_users.head())
+        df_users = df_users[['User', 'Language']]
         print('Ho le features per  {} utenti / Tot utenti {}'.format(df_users.shape[0], len(set_users)))
 
-        df_users.dropna(subset=['User', 'Language'], inplace=True)
+        #df_users.dropna(subset=['User', 'Language'], inplace=True)
+        df_users['Language'].fillna(0, inplace=True)
         df_users['User'] = df_users['User'].astype('int64')
         df_users['Language'] = df_users['Language'].astype('int64')
         df_users['Value'] = 1
