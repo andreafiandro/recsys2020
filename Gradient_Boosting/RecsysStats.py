@@ -455,3 +455,17 @@ class RecSysStats:
         dd_input.to_csv('user_language_mapping.csv', index=False, header = False)
 
         return
+
+    def get_max_min_engagement_date(self):
+        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        dd_input = self.process_chunk_tsv(dd_input)
+        dd_input = dd_input[['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']]
+        for label in ['Reply', 'Retweet', 'Retweet_with_comment', 'Like']:
+            col_label = label + '_engagement_timestamp'
+            dd_label = dd_label[[col_label]]
+            dd_label = dd_label[~dd_label[col_label].isna()]
+            max_timestamp = dd_label[col_label].max().compute()
+            min_timestamp = dd_label[col_label].max().compute()
+            self.print_and_log('Label {} / Min Timestamp: {} / Max Timestamp: {}'.format(label, min_timestamp, max_timestamp))
+        
+        return
