@@ -568,29 +568,47 @@ class RecSysUtility:
         # Genero la sparse matrix con le interazioni
         print('Group by User e Author')
         df_interactions = dd_interaction.groupby(['User', 'Author'])['Value'].sum().reset_index().compute()
+        
         print('Genero la sparse matrix')
         interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))        
-        
+        set_users = set(df_interactions['User'].unique())
+        set_authors = set(df_interactions['Author'].unique())
+        print('Ho {} autori e {} utenti'.format(len(set_authors), len(set_users)))
+
         print('Genero le features degli autori')
         df_author = pd.read_csv('author_hashtag_mapping.csv', header=None)
         df_author.columns =  ['Author', 'Hashtag']
+
+        print('Pulisco gli autori che non hanno interazioni')
+        df_author = df_author[df_author['Author'].isin(set_authors)]
+        print('Ho le features per  {} autori / Tot Autori {}'.format(df_author.shape[0], len(set_authors)))
+
         df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
         df_author['Author'] = df_author['Author'].astype('int64')
         df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
         df_author['Value'] = 1
+        
         print('Genero la sparse matrix')
         author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
 
         print('Genero le features per gli utenti')
         df_users = pd.read_csv('user_language_mapping.csv', header=None)
         df_users.columns = ['User', 'Language']
+
+        print('Pulisco gli utenti che non hanno interazioni')
+        df_users = df_users[df_users['Author'].isin(set_users)]
+        print('Ho le features per  {} utenti / Tot utenti {}'.format(df_users.shape[0], len(set_users)))
+
         df_users.dropna(subset=['User', 'Language'], inplace=True)
         df_users['User'] = df_users['User'].astype('int64')
         df_users['Language'] = df_users['Language'].astype('int64')
         df_users['Value'] = 1
+        print('Pulisco le features, tenendo solo quelle che ci sono nel training set')
+
         print('Genero la sparse matrix')
         user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
 
+        
         print('Training MF')
         model = LightFM(no_components=300, loss='warp-kos', learning_rate=0.1)
         model.fit(interactions, epochs=200, num_threads=4, item_features=author_features, user_features=user_features)
