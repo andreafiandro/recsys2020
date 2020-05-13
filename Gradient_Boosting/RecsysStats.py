@@ -462,7 +462,7 @@ class RecSysStats:
         dd_input = dd_input[['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']]
         for label in ['Reply', 'Retweet', 'Retweet_with_comment', 'Like']:
             col_label = label + '_engagement_timestamp'
-            dd_label = dd_label[[col_label]]
+            dd_label = dd_input[[col_label]]
             dd_label = dd_label[~dd_label[col_label].isna()]
             max_timestamp = dd_label[col_label].max().compute()
             min_timestamp = dd_label[col_label].max().compute()
