@@ -465,7 +465,7 @@ class RecSysStats:
             dd_label = dd_input[[col_label]]
             dd_label = dd_label[~dd_label[col_label].isna()]
             max_timestamp = dd_label[col_label].max().compute()
-            min_timestamp = dd_label[col_label].max().compute()
+            min_timestamp = dd_label[col_label].min().compute()
             self.print_and_log('Label {} / Min Timestamp: {} / Max Timestamp: {}'.format(label, min_timestamp, max_timestamp))
         
         return
