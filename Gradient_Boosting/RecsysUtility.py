@@ -559,6 +559,7 @@ class RecSysUtility:
             return encoded_list
     
     def mf_training(self, label):
+        print('Inizio il training della MF per la label {}'.format(label))
         training_file = 'mf_{}.csv'.format(label)
         dd_train = dd.read_csv(training_file, header=None)
         dd_train.columns = ['Author', 'User', 'Hashtags']
@@ -571,15 +572,22 @@ class RecSysUtility:
         interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))        
         
         print('Genero le features degli autori')
-        df_author = dd_train[['Author', 'Hashtags']].explode('Hashtags').drop_duplicates().compute()
+        df_author = pd.read_csv('author_hashtags_mapping.csv')
+        df_author.columns =  ['Author', 'Hashtag']
         df_author['Value'] = 1
         print('Genero la sparse matrix')
-        author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtags)))   
+        author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
+
+        print('Genero le features per gli utenti')
+        df_users = pd.read_csv('user_language_mapping.csv')
+        df_users.columns = ['User', 'Language']
+        df_users['Value'] = 1
+        print('Genero la sparse matrix')
+        user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
 
         print('Training MF')
         model = LightFM(no_components=300, loss='warp-kos', learning_rate=0.1)
         model.fit(interactions, epochs=200, num_threads=4, item_features=author_features)
-
 
         print('Salvo il modello')
         pickle.dump(model, open('mf_model_{}'.format(label), "wb"))
