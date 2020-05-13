@@ -574,7 +574,8 @@ class RecSysUtility:
         set_users = set(df_interactions['User'].unique())
         set_authors = set(df_interactions['Author'].unique())
         print('Ho {} autori e {} utenti'.format(len(set_authors), len(set_users)))
-
+        del df_interactions
+        gc.collect()
         print('Genero le features degli autori')
         df_author = dd.read_csv('author_hashtag_mapping.csv', header=None)
         df_author.columns =  ['Author', 'Hashtag']
@@ -597,7 +598,9 @@ class RecSysUtility:
         
         print('Genero la sparse matrix')
         author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
-        
+        del df_author
+        gc.collect()
+
         print('Genero le features per gli utenti')
         df_users = dd.read_csv('user_language_mapping.csv', header=None)
         df_users.columns = ['User', 'Language']
@@ -620,6 +623,9 @@ class RecSysUtility:
         print('Genero la sparse matrix')
         user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
 
+        del df_user
+        gc.collect()
+        
         
         print('Training MF')
         model = LightFM(no_components=300, loss='warp-kos', learning_rate=0.1)
