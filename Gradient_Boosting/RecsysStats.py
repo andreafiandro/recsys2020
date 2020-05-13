@@ -93,10 +93,11 @@ class RecSysStats:
         return
 
     def count_pseudo_negative(self):
-        dd_input = dd.read_csv(self.training_file, sep='\u0001', header=None)
-        df = self.process_chunk_tsv(dd_input)
-        df_pseudo_negative = df[df['Reply_engagement_timestamp'].isna() & df['Retweet_engagement_timestamp'].isna() & df['Retweet_with_comment_engagement_timestamp'].isna() & df['Like_engagement_timestamp'].isna()].compute()
-        self.print_and_log('There are {} pseudo negative'.format(df_pseudo_negative.shape[0]))
+        df = dd.read_csv(self.training_file, sep='\u0001', header=None)
+        df = self.process_chunk_tsv(df)
+        df = df [['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']]
+        df = df[df['Reply_engagement_timestamp'].isna() & df['Retweet_engagement_timestamp'].isna() & df['Retweet_with_comment_engagement_timestamp'].isna() & df['Like_engagement_timestamp'].isna()].compute()
+        self.print_and_log('There are {} pseudo negative'.format(df.shape[0]))
         return
 
     
