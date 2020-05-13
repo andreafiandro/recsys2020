@@ -567,8 +567,8 @@ class RecSysUtility:
         dd_interaction['Value'] = 1
         # Genero la sparse matrix con le interazioni
         print('Group by User e Author')
-        df_interactions = dd_interaction.groupby(['User', 'Author'])['Value'].sum().reset_index().compute()
-        
+        dd_interactions = dd_interaction.groupby(['User', 'Author'])['Value'].sum().reset_index()
+        df_interactions = dd_interactions.compute()
         print('Genero la sparse matrix')
         interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))        
         set_users = set(df_interactions['User'].unique())
@@ -581,7 +581,7 @@ class RecSysUtility:
 
         print('Prendo solo gli autori delle interazioni')
         df_author = df_author[df_author['Author'].isin(set_authors)]
-        df_author = df_interactions.merge(df_author, how='left', left_on='Author', right_on='Author').compute()
+        df_author = dd_interactions.merge(df_author, how='left', left_on='Author', right_on='Author').compute()
         print('Autori utili')
         print(df_author.head())
         df_author = df_author[['Author', 'Hashtag']]
@@ -604,7 +604,7 @@ class RecSysUtility:
 
         print('Pulisco gli utenti che non hanno interazioni')
         df_users = df_users[df_users['User'].isin(set_users)]
-        df_users = df_interactions.merge(df_users, how='left', left_on='User', right_on='User').compute()
+        df_users = dd_interactions.merge(df_users, how='left', left_on='User', right_on='User').compute()
         print('Utenti utili')
         print(df_users.head())
         df_users = df_users[['User', 'Language']]
