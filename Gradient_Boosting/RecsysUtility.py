@@ -581,7 +581,7 @@ class RecSysUtility:
 
         print('Prendo solo gli autori delle interazioni')
         #df_author = df_author[df_author['Author'].isin(set_authors)]
-        df_author = df_interactions['Author'].merge(df_author['Author'], how='left', left_on='Author', right_on='Author')
+        df_author = df_interactions.merge(df_author, how='left', left_on='Author', right_on='Author')
         print('Autori utili')
         print(df_author.head())
         df_author = df_author[['Author', 'Hashtag']]
@@ -604,7 +604,7 @@ class RecSysUtility:
 
         print('Pulisco gli utenti che non hanno interazioni')
         #df_users = df_users[df_users['Author'].isin(set_users)]
-        df_users = df_interactions['User'].merge(df_users['User'], how='left', left_on='User', right_on='User')
+        df_users = df_interactions.merge(df_users, how='left', left_on='User', right_on='User')
         print('Utenti utili')
         print(df_users.head())
         df_users = df_users[['User', 'Language']]
