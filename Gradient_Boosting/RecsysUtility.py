@@ -21,7 +21,7 @@ from xgboost.dask import DaskXGBClassifier
 from dask.distributed import Client, LocalCluster
 from lightfm import LightFM
 import dask.dataframe as dd
-from scipy import coo_matrix
+from scipy.sparse import coo_matrix
 
 
 class RecSysUtility:
@@ -576,12 +576,12 @@ class RecSysUtility:
         print('Ho {} autori e {} utenti'.format(len(set_authors), len(set_users)))
 
         print('Genero le features degli autori')
-        df_author = pd.read_csv('author_hashtag_mapping.csv', header=None)
+        df_author = dd.read_csv('author_hashtag_mapping.csv', header=None)
         df_author.columns =  ['Author', 'Hashtag']
 
         print('Prendo solo gli autori delle interazioni')
-        #df_author = df_author[df_author['Author'].isin(set_authors)]
-        df_author = df_interactions.merge(df_author, how='left', left_on='Author', right_on='Author')
+        df_author = df_author[df_author['Author'].isin(set_authors)]
+        df_author = df_interactions.merge(df_author, how='left', left_on='Author', right_on='Author').compute()
         print('Autori utili')
         print(df_author.head())
         df_author = df_author[['Author', 'Hashtag']]
@@ -599,12 +599,12 @@ class RecSysUtility:
         author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
         
         print('Genero le features per gli utenti')
-        df_users = pd.read_csv('user_language_mapping.csv', header=None)
+        df_users = dd.read_csv('user_language_mapping.csv', header=None)
         df_users.columns = ['User', 'Language']
 
         print('Pulisco gli utenti che non hanno interazioni')
-        #df_users = df_users[df_users['Author'].isin(set_users)]
-        df_users = df_interactions.merge(df_users, how='left', left_on='User', right_on='User')
+        df_users = df_users[df_users['User'].isin(set_users)]
+        df_users = df_interactions.merge(df_users, how='left', left_on='User', right_on='User').compute()
         print('Utenti utili')
         print(df_users.head())
         df_users = df_users[['User', 'Language']]
