@@ -574,7 +574,7 @@ class RecSysUtility:
         print('Genero le features degli autori')
         df_author = pd.read_csv('author_hashtag_mapping.csv')
         df_author.columns =  ['Author', 'Hashtag']
-        df_author['User'] = df_author['User'].astype('int64')
+        df_author['Author'] = df_author['Author'].astype('int64')
         df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
         df_author['Value'] = 1
         print('Genero la sparse matrix')
