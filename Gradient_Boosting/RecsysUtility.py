@@ -572,7 +572,7 @@ class RecSysUtility:
         interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))        
         
         print('Genero le features degli autori')
-        df_author = pd.read_csv('author_hashtag_mapping.csv', header=False)
+        df_author = pd.read_csv('author_hashtag_mapping.csv', header=None)
         df_author.columns =  ['Author', 'Hashtag']
         df_author['Author'] = df_author['Author'].dropna().astype('int64')
         df_author['Hashtag'] = df_author['Hashtag'].dropna().astype('int64')
@@ -581,7 +581,7 @@ class RecSysUtility:
         author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
 
         print('Genero le features per gli utenti')
-        df_users = pd.read_csv('user_language_mapping.csv', header=False)
+        df_users = pd.read_csv('user_language_mapping.csv', header=None)
         df_users.columns = ['User', 'Language']
         df_users['User'] = df_users['User'].dropna().astype('int64')
         df_users['Language'] = df_users['Language'].dropna().astype('int64')
