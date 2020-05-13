@@ -564,6 +564,9 @@ class RecSysUtility:
         dd_train = dd.read_csv(training_file, header=None)
         dd_train.columns = ['Author', 'User', 'Hashtags']
         dd_interaction = dd_train[['Author', 'User']]
+        del dd_train
+        gc.collect()
+        
         dd_interaction['Value'] = 1
         # Genero la sparse matrix con le interazioni
         print('Group by User e Author')
@@ -573,6 +576,7 @@ class RecSysUtility:
         interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))        
         set_users = set(df_interactions['User'].unique())
         set_authors = set(df_interactions['Author'].unique())
+
         print('Ho {} autori e {} utenti'.format(len(set_authors), len(set_users)))
         del df_interactions
         gc.collect()
@@ -598,6 +602,7 @@ class RecSysUtility:
         
         print('Genero la sparse matrix')
         author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
+
         del df_author
         gc.collect()
 
