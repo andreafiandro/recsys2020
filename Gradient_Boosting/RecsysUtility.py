@@ -623,7 +623,7 @@ class RecSysUtility:
         print('Genero la sparse matrix')
         user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
 
-        del df_user
+        del df_users
         gc.collect()
         
         
