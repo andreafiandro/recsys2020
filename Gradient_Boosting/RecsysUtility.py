@@ -574,8 +574,9 @@ class RecSysUtility:
         print('Genero le features degli autori')
         df_author = pd.read_csv('author_hashtag_mapping.csv', header=None)
         df_author.columns =  ['Author', 'Hashtag']
-        df_author['Author'] = df_author['Author'].dropna().astype('int64')
-        df_author['Hashtag'] = df_author['Hashtag'].dropna().astype('int64')
+        df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
+        df_author['Author'] = df_author['Author'].astype('int64')
+        df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
         df_author['Value'] = 1
         print('Genero la sparse matrix')
         author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
@@ -583,8 +584,9 @@ class RecSysUtility:
         print('Genero le features per gli utenti')
         df_users = pd.read_csv('user_language_mapping.csv', header=None)
         df_users.columns = ['User', 'Language']
-        df_users['User'] = df_users['User'].dropna().astype('int64')
-        df_users['Language'] = df_users['Language'].dropna().astype('int64')
+        df_users.dropna(subset=['User', 'Language'], inplace=True)
+        df_users['User'] = df_users['User'].astype('int64')
+        df_users['Language'] = df_users['Language'].astype('int64')
         df_users['Value'] = 1
         print('Genero la sparse matrix')
         user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
