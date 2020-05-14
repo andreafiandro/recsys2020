@@ -419,6 +419,7 @@ class RecSysUtility:
         #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
         dd_user = dd_user[dd_user['User'].isin(user_utili)]
         dd_user = dd_user.groupby('User')['Language'].apply(list).compute()
+        dd_user.columns = ['User', 'Language']
         print('Features utenti')
         print(dd_user.head())
 
