@@ -75,3 +75,21 @@ class TEXT_ENSEMBLE(nn.Module):
     def forward(self, input):
         _, cls = self.bert(input)
         return self.model_b(cls)
+
+
+class FEATURES_ENSEMBLE(nn.Module):
+    def __init__(self, bert, model_b):
+        """
+        :param bert: bert model that outputs its last hidden layer cls in the form (logits, cls)
+        :param model_b: a model (like CNN with default parameters) that accepts cls outputs (batch_size x 768) 
+        """
+        super(FEATURES_ENSEMBLE, self).__init__()
+        self.bert = bert
+        self.model_b = model_b
+        self.config = bert.config
+    
+    def forward(self, inputs, feats):
+        _, cls = self.bert(inputs) #tokens
+        cat = torch.cat((cls, feats), axis=1)
+        return self.model_b(cat)
+

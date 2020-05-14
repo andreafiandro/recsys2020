@@ -3,6 +3,8 @@ import os
 import numpy as np
 from sklearn.metrics import precision_recall_curve, auc, log_loss
 import logging
+import time
+import json
 
 # useful utility functions by AF e SL
 
@@ -10,9 +12,10 @@ class RecSysUtility:
 
    
     def __init__(self, test_file):
-        self.test_file = test_file
+        self.test_file = test_file 
+        self.training_file = test_file #For usage in training like xgb
         logging.basicConfig(filename='statistics.log',level=logging.INFO)
-        ProgressBar().register()
+        #ProgressBar().register()
 
         self.col_names_val = ['Text_tokens', 'Hashtags', 'Tweet_id', 'Present_media', 'Present_links', 'Present_domains', 'Tweet_type', 'Language', 'Timestamp',
         'User_id', 'Follower_count', 'Following_count', 'Is_verified', 'Account_creation_time',
@@ -29,6 +32,12 @@ class RecSysUtility:
         self.lang_id = 0
         self.tweet_type_dic = {}
         self.lang_dic = {}
+
+    """
+    ------------------------------------------------------------------------------------------
+    UTILITIES
+    ------------------------------------------------------------------------------------------
+    """
 
     def clean_col(self, x):
         """
@@ -55,6 +64,7 @@ class RecSysUtility:
             df[col] = df[col].fillna(0)
         return df
 
+
     def create_chunk_csv(self, output_dir='./test_chunk', chunk_size = 1000000):
 
         """
@@ -72,12 +82,117 @@ class RecSysUtility:
             df_chunk.to_csv(os.path.join(output_dir, 'test_chunk_{}.csv'.format(chunk_n)), index=False)
             chunk_n += 1
 
+
     def count_item(self, x):
         if(x != 0):
             return len(x.split('|'))
 
 
+    def save_dictionaries_on_file(self):
+        if(os.path.exists('lang.json')):
+            os.remove('lang.json')
+
+        f = open("lang.json","w")
+        f.write(json.dumps(self.lang_dic))
+        f.close()
+
+        if(os.path.exists('tweet_type.json')):
+            os.remove('tweet_type.json')
+            
+        f = open("tweet_type.json","w")
+        f.write(json.dumps(self.tweet_type_dic))
+        f.close()
+        return
+
+
+    def encode_string_features(self, df, isDask=False):
+        """
+        Function used to convert the features represented by strings. 
+        """
+
+        # Aggiorno i dizionari
+        for t in df['Tweet_type'].unique():
+            if t not in self.tweet_type_dic:
+                self.tweet_type_dic[t] = self.tweet_type_id
+                self.tweet_type_id += 1
+
+        
+
+        for t in df['Language'].unique():
+            if t not in self.lang_dic:
+                self.lang_dic[t] = self.lang_id
+                self.lang_id += 1
+        
+        # Salvo i dizionari su json
+        self.save_dictionaries_on_file()
+        if(isDask):
+            df['Tweet_type'] = df['Tweet_type'].apply(lambda x: self.tweet_type_dic[x], meta=('int'))
+            df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x], meta=('int'))
+        else:
+            df['Tweet_type'] = df['Tweet_type'].apply(lambda x: self.tweet_type_dic[x])
+            df['Language'] = df['Language'].apply(lambda x: self.lang_dic[x])
+        return df
+
+
+    def encode_val_string_features(self, df):
+        """
+        Function used to encode the string features by means of the dictionaries generated during the training, useful during submission
+        """
+
+        jsonFile = open("lang.json", "r")
+        lang_dic = json.load(jsonFile)
+        jsonFile.close()
+
+        jsonFile = open("tweet_type.json", "r")
+        tweet_type_dic = json.load(jsonFile)
+        jsonFile.close()
+
+        df['Tweet_type'] = df['Tweet_type'].apply(lambda x: tweet_type_dic.get(x, -1))
+        df['Language'] = df['Language'].apply(lambda x: lang_dic.get(x, -1))
+
+        return df
     
+
+    def generate_features_lgb(self, df, user_features_file='./user_features_final.csv'):
+        """
+        Function to generate the features included in the gradient boosting model.
+        """
+
+        # Count the number of the items in the following columns
+        # TODO: Present link, media e domains per ora sono semplicemente sommati, in realtà andrebbe specificato il tipo di media con il numero di elementi (es. 2 video, 3 foto ecc...)
+        col_to_count=['Hashtags', 'Present_media', 'Present_links', 'Present_domains']
+
+        for col in col_to_count:
+            df[col] = df[col].apply(lambda x: self.count_item(x))
+        df['Text_len'] = df['Text_tokens'].apply(lambda x: self.count_item(x) -2)
+
+        # Instead of timestamp, I count the seconds elapsed from the account creation
+        current_timestamp = int(time.time())
+        df['Account_creation_time'] = df['Account_creation_time'].apply(lambda x: current_timestamp - x)
+        df['Account_creation_time_engaging'] = df['Account_creation_time_engaging'].apply(lambda x: current_timestamp - x)
+        
+        # Runtime Features
+        df.loc[:,"follow_ratio_author"] = df.loc[:,'Following_count'] / df.loc[:,'Follower_count']
+        df.loc[:,"follow_ratio_user"] = df.loc[:,'Following_count_engaging'] / df.loc[:,'Follower_count_engaging']
+        df.loc[:,'Elapsed_time_author'] = df['Timestamp'] - df['Account_creation_time']
+        df.loc[:,'Elapsed_time_user'] = df['Timestamp'] - df['Account_creation_time_engaging']
+
+        # Add user features
+        print('Adding the user features from {}'.format(user_features_file))
+        df_input = pd.read_csv(user_features_file, nrows=None) 
+        df = df.merge(df_input, how='left', left_on='User_id_engaging', right_on='User_id_engaging')
+        
+        # Create other features
+        df.loc[:,'ratio_reply'] = df.loc[:,'Tot_reply'] / df.loc[:,'Tot_action']
+        df.loc[:,'ratio_retweet'] = df.loc[:,'Tot_retweet'] / df.loc[:,'Tot_action']
+        df.loc[:,'ratio_comment'] = df.loc[:,'Tot_comment'] / df.loc[:,'Tot_action']
+        df.loc[:,'ratio_like'] = df.loc[:,'Tot_like'] / df.loc[:,'Tot_action']
+
+        # Riempio i valori NaN con -1 per dare un informazione in più al gradient boosting
+        col_to_fill = ['Tot_reply', 'Tot_retweet', 'Tot_comment', 'Tot_like', 'Tot_action', 'ratio_reply', 'ratio_retweet', 'ratio_comment', 'ratio_like']
+        df[col_to_fill] = df[col_to_fill].fillna(value=-1)
+
+        return df
     
 
     """
@@ -87,14 +202,16 @@ class RecSysUtility:
     """
 
     def compute_prauc(self, pred, gt):
-        prec, recall, thresh = precision_recall_curve(gt, pred)
+        prec, recall, _ = precision_recall_curve(gt, pred)
         prauc = auc(recall, prec)
         return prauc
+
 
     def calculate_ctr(self,gt):
         positive = len([x for x in gt if x == 1])
         ctr = positive/float(len(gt))
         return ctr
+
 
     def compute_rce(self, pred, gt):
         #pred = np.asarray(pred, dtype=np.float64)

@@ -11,14 +11,15 @@ import torch.nn as nn
 import torch.optim as optim
 from bert_model import BERT
 from config import TrainingConfig
-from recSysDataset import BertDataset
+from recSysDataset import BertDataset, CNN_Features_Dataset
 
 from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from transformers import BertForSequenceClassification
 
 from RCE import Multi_Label_RCE_Loss
-from cnn_model import TEXT_ENSEMBLE, CNN
+from cnn_model import TEXT_ENSEMBLE, CNN, FEATURES_ENSEMBLE
+from nlprecsysutility import RecSysUtility
 
 _PRINT_INTERMEDIATE_LOG = True
 # Choose GPU if is available, otherwise cpu
@@ -30,7 +31,7 @@ os.makedirs(TrainingConfig._checkpoint_path, exist_ok=True)
 
 
 
-def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, epochs, rce_loss):
+def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, epochs, rce_loss, features=False):
 
     """This function does the training of the model
     
@@ -64,12 +65,15 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                 model.eval()   # Set model to evaluate mode
 
             running_loss = 0.0
-            correct_output_num = 0
             eval_logits = eval_targets = None
             # Iterate over data
             for inputs, targets in dataloaders_dict[phase]:
-                
-                inputs = torch.from_numpy(np.array(inputs)).to(device)              
+                if features:
+                    feats = torch.from_numpy(np.array(inputs[1])).to(device)
+                    inputs = torch.from_numpy(np.array(inputs[0])).to(device)
+                    
+                else:
+                    inputs = torch.from_numpy(np.array(inputs)).to(device)              
                 targets = targets.to(device)
                 optimizer.zero_grad()
 
@@ -77,8 +81,10 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                 with torch.set_grad_enabled(phase == 'train'):
                     
                     # BERT returns a tuple. The first one contains the logits
-                    
-                    logits, cls_output = model(inputs)
+                    if features:
+                        logits, _ = model(inputs, feats)
+                    else:
+                        logits, _ = model(inputs)
 
                     # aggiunto per via dell'errore 
                     # Runtime Error: result type Float cannot be cast to the desired output type Long
@@ -98,12 +104,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                         else:
                             eval_logits = logits
                             eval_targets = targets
-                        
-                    #statistics
                     running_loss += loss.item() * inputs.size(0)
-
-                    # da modificare per l'accuracy multilabel
-                    # correct_output_num += torch.sum(torch.max(logits, 1)[1] == targets)
 
             epoch_loss = running_loss / datasizes_dict[phase]
             
@@ -213,7 +214,47 @@ def preprocessing(df, args):
 
     return [x_train, y_train_reply, y_train_retweet, y_train_retweet_comment, y_train_like], [x_test, y_test_reply, y_test_retweet, y_test_retweet_comment, y_test_like] , classes_support, test_positive_rates
 
+def preprocess_features(df, args):
+    df = df.fillna(0)
+    x = df[df.columns[:-4]]
+    y = df[df.columns[-4:]] # column name prediction
 
+    dummy = RecSysUtility('')
+    x = dummy.generate_features_lgb(x, user_features_file='./checkpoint/user_features_final.csv')
+    x = dummy.encode_string_features(x)
+    not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
+    x.drop(not_useful_cols, axis=1, inplace=True)
+    for col in x.columns[1:]:
+        x[col] = x[col].astype(float) #pd.to_numeric(x[col],downcast='float')
+
+    ##########################################################################
+    # The labels are not enum but are represented in the dataset
+    # as empty cell if there wasn't no engagment or with a timestamp if was an engagment.
+    # The necessary transformations will take place through df.fillna(0) and
+    # transformation lambda
+    # Set 1 for timestamps (values > 0)
+    # clip(upper=threshold) works in that way
+    #   
+    #   set y[i] = threshold, if y[i] > threshold
+    ##########################################################################
+    y = y.clip(upper=1)
+
+    # Split in train and test part the chunk
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=args.testsplit, random_state=42) 
+    # Answer to the Ultimate Question of Life, the Universe, and Everything
+
+    # Get the support of each classes in the training (used then to balance the loss)
+    # classes_support = y_train.value_counts() # single label
+    classes_support = y_train.astype(bool).sum(axis=0).apply(lambda x: 1 if x == 0 else x )
+    test_positive_rates = y_test.astype(bool).sum(axis=0) / len(y_test.index) #positivi/tot
+    # classes_support = [1 if x == 0 else x for x in classes_support]
+    
+    # In this case, due the nature of text tokens field, we will have a list of string. 
+    # Each string is a sequence of token ids separed by | , that have to be correctly transformed into a list 
+    # (this will be done by text_data function).
+    #x_train = x_train.values.tolist()
+    #x_test = x_test.values.tolist()
+    return x_train, y_train, x_test, y_test, classes_support, test_positive_rates
 
 def main():
     """Main function for doing sequence classification with BERT
@@ -274,9 +315,17 @@ def main():
         required=True,
         help="Test split size (e.g. 0.10)"
     )
+    parser.add_argument(
+        "--features",
+        default=None,
+        type=str,
+        required=False,
+        help="type yes or something <-> to use text+extracted features for cnn"
+    )
     
     args = parser.parse_args()
-
+    if args.features:
+        print('##### WORKING WITH FEATURES #####')
     not_bert_finetuning = TrainingConfig._not_finetuning_bert
 
     # Initializing a BERT model
@@ -289,9 +338,9 @@ def main():
         bert_model.load_state_dict(checkpoint)
         bert_model.freeze_layers(bert_model.bert)
         bert_model.freeze_layers(bert_model.classifier)
-    
-    cnn = CNN()
-    model = TEXT_ENSEMBLE(bert = bert_model, model_b = cnn)
+
+    nrows = None
+        
     ##########################################################################
     # Accessing the model configuration
     # if you need to modify these parameters, just create a new configuration:
@@ -301,29 +350,37 @@ def main():
     #       model = BertForSequenceClassification(config)
     #
     ##########################################################################
-    if _PRINT_INTERMEDIATE_LOG:
-        print(model.config)
-        
-    df = pd.read_csv(args.data) #Put here nrows = ??? for test purposes
+    
+    df = pd.read_csv(args.data, nrows=nrows) #Put here nrows = ??? for test purposes
     if _PRINT_INTERMEDIATE_LOG:
         print('DATASET SHAPE: '+ str(df.shape))
         print('HEAD FUNCTION: '+ str(df.head()))
 
     number_of_rows = len(df.index)
     print("Number of rows "+str(number_of_rows))
+    if(args.features):
+        cnn = CNN(dim=798, length=21) #768 cls +30 features = 768 % 21 => batch_sizex21x38
+        model = FEATURES_ENSEMBLE(bert = bert_model, model_b = cnn)
+        x_train, y_train, x_test, y_test, classes_support, test_positive_rates = preprocess_features(df, args)
+        #CNN_Features_Dataset(x_tokens, x_features, y)
+        train_data = CNN_Features_Dataset(x_train.iloc[:, 0].values.tolist(), x_train.iloc[:, 1:].values.tolist(), y_train.values.tolist())
+        test_data = CNN_Features_Dataset(x_test.iloc[:, 0].values.tolist(), x_test.iloc[:, 1:].values.tolist(), y_test.values.tolist())
+    else:
+        cnn = CNN()
+        model = TEXT_ENSEMBLE(bert = bert_model, model_b = cnn)
+        train_chunk, test_chunk, classes_support, test_positive_rates = preprocessing(df, args)
+        # create the dataset objects
+        train_data = BertDataset(xy_list=train_chunk)
+        test_data = BertDataset(xy_list=test_chunk)
 
-    train_chunk, test_chunk, classes_support, test_positive_rates = preprocessing(df, args)
+    if _PRINT_INTERMEDIATE_LOG:
+        print(model.config)
 
-    number_of_training_rows = len(train_chunk[0])
+    number_of_training_rows = len(train_data)
     print("Number of training rows "+str(number_of_training_rows))
 
     if _PRINT_INTERMEDIATE_LOG:
         print('Different training classes: \n' + str(classes_support))
-
-    # create the dataset objects
-    train_data = BertDataset(xy_list=train_chunk)
-    test_data = BertDataset(xy_list=test_chunk)
-
     # create the dataloaders for the training loop
     dataloaders_dict = {'train': torch.utils.data.DataLoader(train_data, batch_size=args.batch, shuffle=True, num_workers=args.workers),
                     'val': torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=True, num_workers=args.workers)
@@ -331,9 +388,6 @@ def main():
     datasizes_dict = {'train':len(train_data),
                     'val':len(test_data)              
                     }
-
-    
-
     # move model to device before optimizer instantiation
     model.to(device)
 
@@ -380,7 +434,7 @@ def main():
                                     step_size=TrainingConfig._scheduler_step, 
                                     gamma=TrainingConfig._scheduler_gamma)
     
-    train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, args.epochs, rce_loss)
+    train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, scheduler, args.epochs, rce_loss, args.features)
 
 if __name__ == "__main__":
     main()
