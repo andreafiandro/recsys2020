@@ -117,8 +117,10 @@ class RecSysUtility:
 
         # 2. Pulisco i dati
         df_input = self.process_chunk_tsv(df_input)
+        df_input = self.generate_features_mf(df_input)
         df_input = self.generate_features_lgb(df_input, user_features_file = './user_features_final.csv')
         df_input = self.encode_string_features(df_input)
+        
         
         # 3. Split tra Train / Val / Test
         df_train, df_test = train_test_split(df_input, test_size=0.15)
@@ -385,6 +387,35 @@ class RecSysUtility:
 
         return df
 
+    def generate_features_mf(self, df):
+        # Carico tutti i modelli
+        print('Carico i modelli di MF')
+        model_like = pickle.load(open('mf_model_Like', "rb"))
+        model_reply = pickle.load(open('mf_model_Reply', "rb"))
+        model_retweet = pickle.load(open('mf_model_Retweet', "rb"))
+        model_comment = pickle.load(open('mf_model_Retweet_with_comment', "rb"))
+
+        # Aggiungo le features degli user
+        print('Aggiungo le features degli utenti')
+        dd_user = dd.read_csv('user_language_mapping.csv', headers = None)
+        dd_user.columns = ['User', 'Language']
+        
+        json_user = open("user_encoding.json", "r")
+        user_dic = json.load(json_user)
+
+        user_utili = set(df['User_id_engaging'].unique().map(user_dic))
+        print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
+        #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
+        dd_user = dd_user[dd_user['User'].isin(user_utili)]
+        dd_user = dd_user.groupby('User')['Language'].apply(list).compute()
+        print('Features utenti')
+        print(dd_user.head())
+
+        print('Predictions MF')
+        df[:, 'score'] = model_like.predict(np.array(df['User_id']), np.array(df['User_id_engaging']), user_features = np.array(dd_user['Language']))
+        print(df.head())
+        return df
+        
     """
     ------------------------------------------------------------------------------------------
         GENERAZIONE DEI FILE DI TRAINING
