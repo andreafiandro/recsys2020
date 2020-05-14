@@ -695,11 +695,11 @@ class RecSysUtility:
             print('Prendo solo gli autori delle interazioni')
             #df_author = df_author[df_author['Author'].isin(set_authors)]
             df_author = dd_interactions.merge(df_author, how='left', left_on='Author', right_on='Author').compute()
-            print('Autori utili')
-            print(df_author.head())
+            #print('Autori utili')
+            #print(df_author.head())
 
             #df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
-            df_author = df_author[['Author', 'Hashtag', 'Value']]
+            #df_author = df_author[['Author', 'Hashtag', 'Value']]
 
             
             print('Genero la sparse matrix')
