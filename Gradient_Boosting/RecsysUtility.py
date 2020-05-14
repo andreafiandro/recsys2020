@@ -644,11 +644,11 @@ class RecSysUtility:
     def mf_training(self, label):
         print('Loading sparse matrix..')
         interactions = pickle.load(open('interactions_{}_matrix'.format(label), "rb"))
-        author_features = pickle.load(open('author_{}_matrix'.format(label), "rb"))
+        #author_features = pickle.load(open('author_{}_matrix'.format(label), "rb"))
         user_features = pickle.load(open('user_{}_matrix'.format(label), "rb"))
         print('Training MF')
         model = LightFM(no_components=300, loss='warp-kos', learning_rate=0.1)
-        model.fit(interactions, epochs=200, num_threads=4, item_features=author_features, user_features=user_features)
+        model.fit(interactions, epochs=200, num_threads=4, user_features=user_features)
 
         print('Salvo il modello')
         pickle.dump(model, open('mf_model_{}'.format(label), "wb"))
