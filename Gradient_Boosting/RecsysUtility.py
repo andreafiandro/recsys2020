@@ -428,7 +428,14 @@ class RecSysUtility:
         print('User Features {}'.format(user_features.shape[0]))
 
         print('Predictions MF')
-        df[:, 'score'] = model_like.predict(df['User_id'].tolist(), df['User_id_engaging'].tolist(), user_features = user_features['User_features'].tolist())
+        author = np.array(df['User_id'].tolist())
+        print(author.shape)
+        user = np.array(df['User_id_engaging'].tolist())
+        print(user.shape)
+        u_features = np.array(user_features['User_features'].tolist())
+        print(u_features.shape)
+
+        df[:, 'score'] = model_like.predict(user, author, user_features = u_features)
         print(df.head())
         return df
         
