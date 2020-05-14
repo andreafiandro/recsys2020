@@ -397,7 +397,7 @@ class RecSysUtility:
 
         # Aggiungo le features degli user
         print('Aggiungo le features degli utenti')
-        dd_user = dd.read_csv('user_language_mapping.csv', headers = None)
+        dd_user = dd.read_csv('user_language_mapping.csv', header = None)
         dd_user.columns = ['User', 'Language']
         
         json_user = open("user_encoding.json", "r")
