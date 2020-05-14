@@ -652,7 +652,7 @@ class RecSysUtility:
 
         print('Salvo il modello')
         pickle.dump(model, open('mf_model_{}'.format(label), "wb"))
-        
+
     def generate_sparse_matrix(self, mtype, label):
         print('Genero la matrice {} per la label {}'.format(mtype, label))
         if(mtype == 'interactions'):
@@ -687,19 +687,20 @@ class RecSysUtility:
             print('Genero le features degli autori')
             df_author = dd.read_csv('author_hashtag_mapping.csv', header=None)
             df_author.columns =  ['Author', 'Hashtag']
+            df_author['Hashtag'].fillna(0, inplace=True)
+            df_author['Author'] = df_author['Author'].astype('int64')
+            df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
+            df_author['Value'] = 1
 
             print('Prendo solo gli autori delle interazioni')
             #df_author = df_author[df_author['Author'].isin(set_authors)]
             df_author = dd_interactions.merge(df_author, how='left', left_on='Author', right_on='Author').compute()
             print('Autori utili')
             print(df_author.head())
-            df_author = df_author[['Author', 'Hashtag']]
 
             #df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
-            df_author['Hashtag'].fillna(0, inplace=True)
-            df_author['Author'] = df_author['Author'].astype('int64')
-            df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
-            df_author['Value'] = 1
+            df_author = df_author[['Author', 'Hashtag', 'Value']]
+
             
             print('Genero la sparse matrix')
             author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
