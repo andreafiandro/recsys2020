@@ -687,7 +687,7 @@ class RecSysUtility:
             print('Genero le features degli autori')
             df_author = dd.read_csv('author_hashtag_mapping.csv', header=None)
             df_author.columns =  ['Author', 'Hashtag']
-            df_author['Hashtag'].fillna(0, inplace=True)
+            df_author['Hashtag'] = df_author['Hashtag'].fillna(0)
             df_author['Author'] = df_author['Author'].astype('int64')
             df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
             df_author['Value'] = 1
