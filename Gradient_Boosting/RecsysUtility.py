@@ -395,15 +395,26 @@ class RecSysUtility:
         model_retweet = pickle.load(open('mf_model_Retweet', "rb"))
         model_comment = pickle.load(open('mf_model_Retweet_with_comment', "rb"))
 
+        # Encoding di utenti e autori
+
+        print('Encoding autori')
+        json_user = open("user_encoding.json", "r")
+        user_dic = json.load(json_user)
+        df['User_id_engaging'] = df['User_id_engaging'].map(user_dic)
+
+        print('Encoding autori')
+        json_author = open("author_encoding.json", "r")
+        author_dic = json.load(json_author)
+        df['User_id'] = df['User_id'].map(author_dic)
+
+
         # Aggiungo le features degli user
         print('Aggiungo le features degli utenti')
         dd_user = dd.read_csv('user_language_mapping.csv', header = None)
         dd_user.columns = ['User', 'Language']
-        
-        json_user = open("user_encoding.json", "r")
-        user_dic = json.load(json_user)
 
-        user_utili = set(df['User_id_engaging'].unique().map(user_dic))
+
+        user_utili = set(df['User_id_engaging'].unique())
         print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
         #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
         dd_user = dd_user[dd_user['User'].isin(user_utili)]
