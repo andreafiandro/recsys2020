@@ -402,7 +402,7 @@ class RecSysUtility:
         user_dic = json.load(json_user)
         df['User_id_engaging'] = df['User_id_engaging'].map(user_dic)
 
-        print('Encoding autori')
+        print('Encoding utenti')
         json_author = open("author_encoding.json", "r")
         author_dic = json.load(json_author)
         df['User_id'] = df['User_id'].map(author_dic)
@@ -418,7 +418,7 @@ class RecSysUtility:
         print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
         #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
         dd_user = dd_user[dd_user['User'].isin(user_utili)]
-        dd_user = dd_user.groupby('User')['Language'].apply(list).compute()
+        dd_user = dd_user.groupby('User')['Language'].apply(list).reset_index().compute()
         dd_user.columns = ['User', 'Language']
         print('Features utenti')
         print(dd_user.head())
