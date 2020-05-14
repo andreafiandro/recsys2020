@@ -422,11 +422,13 @@ class RecSysUtility:
         dd_user.columns = ['User', 'User_features']
         print('Applico le features ai nuovi utenti')
         user_features = df[['User_id_engaging']].merge(dd_user, how='left', left_on='User_id_engaging', right_on='User')
+        
         print('Features utenti')
         print(user_features.head())
         print('User Features {}'.format(user_features.shape[0]))
+
         print('Predictions MF')
-        df[:, 'score'] = model_like.predict(df['User_id'], df['User_id_engaging'], user_features = user_features['User_features'])
+        df[:, 'score'] = model_like.predict(df['User_id'].tolist(), df['User_id_engaging'].tolist(), user_features = user_features['User_features'].tolist())
         print(df.head())
         return df
         
