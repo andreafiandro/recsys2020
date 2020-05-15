@@ -438,8 +438,9 @@ class RecSysUtility:
         print('Genero matrice sparsa per le user features')
         u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
         print(u_features)
-        df[:, 'score'] = model_like.predict(user, author, user_features = u_features)
-        print(df.head())
+        predictions = model_like.predict(user, author, user_features = u_features)
+        print(predictions)
+        df[:, 'score'] = predictions
         return df
         
     """
