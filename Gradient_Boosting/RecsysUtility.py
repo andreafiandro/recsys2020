@@ -439,19 +439,21 @@ class RecSysUtility:
             print('#User: {} / #Author: {}'.format(user.shape[0], author.shape[0]))
             #u_features = np.array(user_features['User_features'].tolist())
             #print(u_features.shape)
-            lang_considered = dd_user['Language'].unique()
+            lang_considered = dd_user['Language'].max()
 
-            if(lang_considered.shape[0] != len(language_dic)):
-                print('# Lingue considerate {} / Tot Lingue {}'.format(lang_considered.shape[0], len(language_dic)))
-                lista_lang = list(language_dic.values())
-                missing_lang = [item for item in lang_considered.tolist() if item not in lista_lang]
-                missing_users = np.repeat(0, len(missing_lang))
-                print(missing_lang)
+            if(lang_considered != len(language_dic)):
+                print('# Lingue considerate {} / Tot Lingue {}'.format(lang_considered, len(language_dic)))
+                #lista_lang = list(language_dic.values())
+                #missing_lang = [item for item in lang_considered.tolist() if item not in lista_lang]
+                #missing_users = np.repeat(0, len(missing_lang))
+                #print(missing_lang)
                 
-                df_complete = pd.DataFrame(list(zip(missing_users, missing_lang, missing_users)),
-                                           columns= ['User', 'Language', 'Value'])
-
-            dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
+                #df_complete = pd.DataFrame(list(zip(missing_users, missing_lang, missing_users)),
+                                           #columns= ['User', 'Language', 'Value'])
+                print('Aggiungo una nuova riga al df')
+                dd_user = dd_user.append({'User': 0, 'Language': len(language_dic), 'Value': 0})
+                print(dd_user.head())
+            #dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
             u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
             print('Dimensioni sparse matrix')
