@@ -417,23 +417,26 @@ class RecSysUtility:
         user_utili = set(df['User_id_engaging'].unique())
         print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
         #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
-        dd_user = dd_user[dd_user['User'].isin(user_utili)]
-        dd_user = dd_user.groupby('User')['Language'].apply(list).reset_index().compute()
-        dd_user.columns = ['User', 'User_features']
-        print('Applico le features ai nuovi utenti')
-        user_features = df[['User_id_engaging']].merge(dd_user, how='left', left_on='User_id_engaging', right_on='User')
+        dd_user = dd_user[dd_user['User'].isin(user_utili)].compute()
+        #dd_user = dd_user.groupby('User')['Language'].apply(list).reset_index().compute()
+        #dd_user.columns = ['User', 'User_features']
+        #print('Applico le features ai nuovi utenti')
+        #user_features = df[['User_id_engaging']].merge(dd_user, how='left', left_on='User_id_engaging', right_on='User')
         
         print('Features utenti')
-        print(user_features.head())
-        print('User Features {}'.format(user_features.shape[0]))
+        print(dd_user.head())
+        dd_user['Value'] = 1
+        print('User Features {}'.format(dd_user[dd_user['User'].unique()].shape[0]))
 
         print('Predictions MF')
         author = np.array(df['User_id'].tolist())
         print(author.shape)
         user = np.array(df['User_id_engaging'].tolist())
         print(user.shape)
-        u_features = np.array(user_features['User_features'].tolist())
-        print(u_features.shape)
+        #u_features = np.array(user_features['User_features'].tolist())
+        #print(u_features.shape)
+        print('Genero matrice sparsa per le user features')
+        u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
 
         df[:, 'score'] = model_like.predict(user, author, user_features = u_features)
         print(df.head())
