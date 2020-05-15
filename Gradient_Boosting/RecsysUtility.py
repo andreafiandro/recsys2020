@@ -117,9 +117,10 @@ class RecSysUtility:
 
         # 2. Pulisco i dati
         df_input = self.process_chunk_tsv(df_input)
+        df_input = self.generate_features_mf(df_input)
         df_input = self.generate_features_lgb(df_input, user_features_file = './user_features_final.csv')
         df_input = self.encode_string_features(df_input)
-        df_input = self.generate_features_mf(df_input)
+        
 
         
         # 3. Split tra Train / Val / Test
@@ -394,6 +395,8 @@ class RecSysUtility:
         user_dic = json.load(json_user)
         json_author = open("author_encoding.json", "r")
         author_dic = json.load(json_author)
+        json_languages = open("language_encoding.json", "r")
+        language_dic = json.load(json_languages)
 
         # Encoding di utenti e autori
         print('Encoding autori')
@@ -412,9 +415,7 @@ class RecSysUtility:
             # Carico tutti i modelli
             print('Carico i modelli di MF')
             model = pickle.load(open('mf_model_{}'.format(l), "rb"))
-            user_embeddings = model.user_embeddings
-            print(user_embeddings)
-            print(type(user_embeddings))
+
             # Aggiungo le features degli user
             print('Aggiungo le features degli utenti')
             dd_user = dd.read_csv('user_language_mapping.csv', header = None)
@@ -422,7 +423,7 @@ class RecSysUtility:
 
             
             #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
-            dd_user = dd_user[dd_user['User'].isin(user_utili) & dd_user['Language'].isin(user_embeddings)].compute()
+            #dd_user = dd_user[dd_user['User'].isin(user_utili) & dd_user['Language'].isin(user_embeddings)].compute()
             #dd_user = dd_user.groupby('User')['Language'].apply(list).reset_index().compute()
             #dd_user.columns = ['User', 'User_features']
             #print('Applico le features ai nuovi utenti')
@@ -438,12 +439,26 @@ class RecSysUtility:
             print('#User: {} / #Author: {}'.format(user.shape[0], author.shape[0]))
             #u_features = np.array(user_features['User_features'].tolist())
             #print(u_features.shape)
+            lang_considered = dd_user['Language'].unique()
+
+            if(lang_considered.shape[0] != len(language_dic)):
+                print('Il numero di lingue considerate è diverso da quello standard')
+                lista_lang = list(language_dic.values())
+                missing_lang = [item for item in lang_considered.tolist() if item not in lista_lang]
+                missing_users = np.repeat(0, len(missing_lang))
+                print(missing_lang)
+                
+                df_complete = pd.DataFrame(list(zip(missing_users, missing_lang, missing_users),
+                                           columns= ['User', 'Language', 'Value']))
+
+            dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
             u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
             print('Dimensioni sparse matrix')
             print(u_features.shape)
             df.loc[:, 'mf_{}'.format(l)] = model.predict(user, author, user_features = u_features)
-        
+
+        json_languages.close()
         json_user.close()
         json_author.close()
         return df
