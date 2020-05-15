@@ -423,7 +423,7 @@ class RecSysUtility:
 
             
             #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
-            #dd_user = dd_user[dd_user['User'].isin(user_utili) & dd_user['Language'].isin(user_embeddings)].compute()
+            dd_user = dd_user[dd_user['User'].isin(user_utili)].compute()
             #dd_user = dd_user.groupby('User')['Language'].apply(list).reset_index().compute()
             #dd_user.columns = ['User', 'User_features']
             #print('Applico le features ai nuovi utenti')
