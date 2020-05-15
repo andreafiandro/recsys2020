@@ -442,14 +442,14 @@ class RecSysUtility:
             lang_considered = dd_user['Language'].unique()
 
             if(lang_considered.shape[0] != len(language_dic)):
-                print('Il numero di lingue considerate è diverso da quello standard')
+                print('# Lingue considerate {} / Tot Lingue {}'.format(lang_considered.shape[0], len(language_dic)))
                 lista_lang = list(language_dic.values())
                 missing_lang = [item for item in lang_considered.tolist() if item not in lista_lang]
                 missing_users = np.repeat(0, len(missing_lang))
                 print(missing_lang)
                 
-                df_complete = pd.DataFrame(list(zip(missing_users, missing_lang, missing_users),
-                                           columns= ['User', 'Language', 'Value']))
+                df_complete = pd.DataFrame(list(zip(missing_users, missing_lang, missing_users)),
+                                           columns= ['User', 'Language', 'Value'])
 
             dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
