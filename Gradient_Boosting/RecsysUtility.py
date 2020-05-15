@@ -439,7 +439,7 @@ class RecSysUtility:
             #u_features = np.array(user_features['User_features'].tolist())
             #print(u_features.shape)
             lang_considered = dd_user['Language'].max()
-
+            user_considered = dd_user['User'].max()
             if(lang_considered != len(language_dic) - 1):
                 print('# Lingue considerate {} / Tot Lingue {}'.format(lang_considered, len(language_dic)))
                 #lista_lang = list(language_dic.values())
@@ -451,6 +451,10 @@ class RecSysUtility:
                                            #columns= ['User', 'Language', 'Value'])
                 print('Aggiungo una nuova riga al df')
                 dd_user = dd_user.append(pd.DataFrame.from_dict({'User': 0, 'Language': len(language_dic)-1, 'Value': 0}), ignore_index=True)
+                print(dd_user.head())
+            if(user_considered != len(user_dic) - 1):
+                print('Aggiungo una nuova riga al df')
+                dd_user = dd_user.append(pd.DataFrame.from_dict({'User': len(user_dic) -1, 'Language': 0, 'Value': 0}), ignore_index=True)
                 print(dd_user.head())
             #dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
