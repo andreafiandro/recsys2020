@@ -117,10 +117,9 @@ class RecSysUtility:
 
         # 2. Pulisco i dati
         df_input = self.process_chunk_tsv(df_input)
-        df_input = self.generate_features_mf(df_input)
         df_input = self.generate_features_lgb(df_input, user_features_file = './user_features_final.csv')
         df_input = self.encode_string_features(df_input)
-        
+        df_input = self.generate_features_mf(df_input)
 
         
         # 3. Split tra Train / Val / Test
@@ -441,7 +440,7 @@ class RecSysUtility:
             #print(u_features.shape)
             lang_considered = dd_user['Language'].max()
 
-            if(lang_considered != len(language_dic)):
+            if(lang_considered != len(language_dic) - 1):
                 print('# Lingue considerate {} / Tot Lingue {}'.format(lang_considered, len(language_dic)))
                 #lista_lang = list(language_dic.values())
                 #missing_lang = [item for item in lang_considered.tolist() if item not in lista_lang]
@@ -451,7 +450,7 @@ class RecSysUtility:
                 #df_complete = pd.DataFrame(list(zip(missing_users, missing_lang, missing_users)),
                                            #columns= ['User', 'Language', 'Value'])
                 print('Aggiungo una nuova riga al df')
-                dd_user = dd_user.append({'User': 0, 'Language': len(language_dic), 'Value': 0})
+                dd_user = dd_user.append(pd.DataFrame.from_dict({'User': 0, 'Language': len(language_dic)-1, 'Value': 0}), ignore_index=True)
                 print(dd_user.head())
             #dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
