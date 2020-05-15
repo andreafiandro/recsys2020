@@ -117,10 +117,10 @@ class RecSysUtility:
 
         # 2. Pulisco i dati
         df_input = self.process_chunk_tsv(df_input)
-        df_input = self.generate_features_mf(df_input)
         df_input = self.generate_features_lgb(df_input, user_features_file = './user_features_final.csv')
         df_input = self.encode_string_features(df_input)
-        
+        df_input = self.generate_features_mf(df_input)
+
         
         # 3. Split tra Train / Val / Test
         df_train, df_test = train_test_split(df_input, test_size=0.15)
