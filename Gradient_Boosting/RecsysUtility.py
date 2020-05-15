@@ -426,7 +426,7 @@ class RecSysUtility:
         print('Features utenti')
         print(dd_user.head())
         dd_user['Value'] = 1
-        print('User Features {}'.format(dd_user[dd_user['User'].unique()].shape[0]))
+        #print('User Features {}'.format(dd_user[dd_user['User'].unique()].shape[0]))
 
         print('Predictions MF')
         author = np.array(df['User_id'].tolist())
@@ -437,7 +437,7 @@ class RecSysUtility:
         #print(u_features.shape)
         print('Genero matrice sparsa per le user features')
         u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
-
+        print(u_features)
         df[:, 'score'] = model_like.predict(user, author, user_features = u_features)
         print(df.head())
         return df
