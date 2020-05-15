@@ -412,7 +412,9 @@ class RecSysUtility:
             # Carico tutti i modelli
             print('Carico i modelli di MF')
             model = pickle.load(open('mf_model_{}'.format(l), "rb"))
-
+            user_embeddings = model.user_embeddings
+            print(user_embeddings)
+            print(type(user_embeddings))
             # Aggiungo le features degli user
             print('Aggiungo le features degli utenti')
             dd_user = dd.read_csv('user_language_mapping.csv', header = None)
@@ -420,7 +422,7 @@ class RecSysUtility:
 
             
             #dd_user = dd_user.merge(df[['User_id_engaging']], how='right', left_on='User', right_on='User_id_engaging')
-            dd_user = dd_user[dd_user['User'].isin(user_utili)].compute()
+            dd_user = dd_user[dd_user['User'].isin(user_utili) & dd_user['Language'].isin(user_embeddings)].compute()
             #dd_user = dd_user.groupby('User')['Language'].apply(list).reset_index().compute()
             #dd_user.columns = ['User', 'User_features']
             #print('Applico le features ai nuovi utenti')
