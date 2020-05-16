@@ -450,12 +450,18 @@ class RecSysUtility:
                 #df_complete = pd.DataFrame(list(zip(missing_users, missing_lang, missing_users)),
                                            #columns= ['User', 'Language', 'Value'])
                 print('Aggiungo una nuova riga al df')
-                dd_user = dd_user.append(pd.DataFrame.from_dict({'User': 0, 'Language': len(language_dic)-1, 'Value': 0}), ignore_index=True)
+                tmp = pd.DataFrame()
+                tmp.columns = ['User', 'Language', 'Value']
+                tmp.loc[0] = [0, len(language_dic)-1, 0]
+                dd_user = dd_user.append(tmp, ignore_index=True)
                 print(dd_user.head())
             if(user_considered != len(user_dic) - 1):
                 print('# Utenti considerati {} / Tot Utenti {}'.format(user_considered, len(user_dic)))
-                dd_user = dd_user.append(pd.DataFrame.from_dict({'User': len(user_dic) -1, 'Language': 0, 'Value': 0}), ignore_index=True)
-                print(dd_user.head())
+                print('Aggiungo una nuova riga al df')
+                tmp = pd.DataFrame()
+                tmp.columns = ['User', 'Language', 'Value']
+                tmp.loc[0] = [len(user_dic) - 1, 0, 0]
+                dd_user = dd_user.append(tmp, ignore_index=True)
             #dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
             u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
