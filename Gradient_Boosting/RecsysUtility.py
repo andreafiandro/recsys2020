@@ -453,6 +453,9 @@ class RecSysUtility:
                 tmp = pd.DataFrame(columns = ['User', 'Language', 'Value'])
                 tmp.loc[0] = [0, len(language_dic)-1, 0]
                 dd_user = dd_user.append(tmp, ignore_index=True)
+                dd_user['User'] = dd_user['User'].astype(int)
+                dd_user['Language'] = dd_user['Language'].astype(int)
+                dd_user['Value'] = dd_user['Value'].astype(int)
                 print(dd_user.head())
             if(user_considered != len(user_dic) - 1):
                 print('# Utenti considerati {} / Tot Utenti {}'.format(user_considered, len(user_dic)))
@@ -460,6 +463,10 @@ class RecSysUtility:
                 tmp = pd.DataFrame(columns = ['User', 'Language', 'Value'])
                 tmp.loc[0] = [len(user_dic) - 1, 0, 0]
                 dd_user = dd_user.append(tmp, ignore_index=True)
+                dd_user['User'] = dd_user['User'].astype(int)
+                dd_user['Language'] = dd_user['Language'].astype(int)
+                dd_user['Value'] = dd_user['Value'].astype(int)
+                print(dd_user.head())
             #dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
             u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
