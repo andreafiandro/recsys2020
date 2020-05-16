@@ -453,7 +453,7 @@ class RecSysUtility:
                 dd_user = dd_user.append(pd.DataFrame.from_dict({'User': 0, 'Language': len(language_dic)-1, 'Value': 0}), ignore_index=True)
                 print(dd_user.head())
             if(user_considered != len(user_dic) - 1):
-                print('Aggiungo una nuova riga al df')
+                print('# Utenti considerati {} / Tot Utenti {}'.format(user_considered, len(user_dic)))
                 dd_user = dd_user.append(pd.DataFrame.from_dict({'User': len(user_dic) -1, 'Language': 0, 'Value': 0}), ignore_index=True)
                 print(dd_user.head())
             #dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
@@ -640,98 +640,15 @@ class RecSysUtility:
             for h in ht.split('|'):
                 encoded_list.append(ht_dict.get(h))
             return encoded_list
-    """
-    def mf_training(self, label):
-        print('Inizio il training della MF per la label {}'.format(label))
-        training_file = 'mf_{}.csv'.format(label)
-        dd_train = dd.read_csv(training_file, header=None)
-        dd_train.columns = ['Author', 'User', 'Hashtags']
-        dd_interaction = dd_train[['Author', 'User']]
-        del dd_train
-        gc.collect()
-        
-        dd_interaction['Value'] = 1
-        # Genero la sparse matrix con le interazioni
-        print('Group by User e Author')
-        dd_interactions = dd_interaction.groupby(['User', 'Author'])['Value'].sum().reset_index()
-        df_interactions = dd_interactions.compute()
-        print('Genero la sparse matrix')
-        interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))        
-        set_users = set(df_interactions['User'].unique())
-        set_authors = set(df_interactions['Author'].unique())
 
-        print('Ho {} autori e {} utenti'.format(len(set_authors), len(set_users)))
-        del df_interactions
-        gc.collect()
-        print('Genero le features degli autori')
-        df_author = dd.read_csv('author_hashtag_mapping.csv', header=None)
-        df_author.columns =  ['Author', 'Hashtag']
-
-        print('Prendo solo gli autori delle interazioni')
-        df_author = df_author[df_author['Author'].isin(set_authors)]
-        df_author = dd_interactions.merge(df_author, how='left', left_on='Author', right_on='Author').compute()
-        print('Autori utili')
-        print(df_author.head())
-        df_author = df_author[['Author', 'Hashtag']]
-
-
-        print('Ho le features per  {} autori / Tot Autori {}'.format(df_author.shape[0], len(set_authors)))
-
-        #df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
-        df_author['Hashtag'].fillna(0, inplace=True)
-        df_author['Author'] = df_author['Author'].astype('int64')
-        df_author['Hashtag'] = df_author['Hashtag'].astype('int64')
-        df_author['Value'] = 1
-        
-        print('Genero la sparse matrix')
-        author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
-
-        del df_author
-        gc.collect()
-
-        print('Genero le features per gli utenti')
-        df_users = dd.read_csv('user_language_mapping.csv', header=None)
-        df_users.columns = ['User', 'Language']
-
-        print('Pulisco gli utenti che non hanno interazioni')
-        df_users = df_users[df_users['User'].isin(set_users)]
-        df_users = dd_interactions.merge(df_users, how='left', left_on='User', right_on='User').compute()
-        print('Utenti utili')
-        print(df_users.head())
-        df_users = df_users[['User', 'Language']]
-        print('Ho le features per  {} utenti / Tot utenti {}'.format(df_users.shape[0], len(set_users)))
-
-        #df_users.dropna(subset=['User', 'Language'], inplace=True)
-        df_users['Language'].fillna(0, inplace=True)
-        df_users['User'] = df_users['User'].astype('int64')
-        df_users['Language'] = df_users['Language'].astype('int64')
-        df_users['Value'] = 1
-        print('Pulisco le features, tenendo solo quelle che ci sono nel training set')
-
-        print('Genero la sparse matrix')
-        user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
-
-        del df_users
-        gc.collect()
-        
-        
-        print('Training MF')
-        model = LightFM(no_components=300, loss='warp-kos', learning_rate=0.1)
-        model.fit(interactions, epochs=200, num_threads=4, item_features=author_features, user_features=user_features)
-
-        print('Salvo il modello')
-        pickle.dump(model, open('mf_model_{}'.format(label), "wb"))
-        return
-        
-    """
     def mf_training(self, label):
         print('Loading sparse matrix..')
         interactions = pickle.load(open('interactions_{}_matrix'.format(label), "rb"))
         #author_features = pickle.load(open('author_{}_matrix'.format(label), "rb"))
         user_features = pickle.load(open('user_{}_matrix'.format(label), "rb"))
         print('Training MF')
-        model = LightFM(no_components=300, loss='warp-kos', learning_rate=0.1)
-        model.fit(interactions, epochs=200, num_threads=4, user_features=user_features)
+        model = LightFM(no_components=20, loss='warp-kos', learning_rate=0.1)
+        model.fit(interactions, epochs=20, num_threads=8, user_features=user_features)
 
         print('Salvo il modello')
         pickle.dump(model, open('mf_model_{}'.format(label), "wb"))
@@ -817,7 +734,10 @@ class RecSysUtility:
             df_users['User'] = df_users['User'].astype('int64')
             df_users['Language'] = df_users['Language'].astype('int64')
             df_users['Value'] = 1
-            print('Pulisco le features, tenendo solo quelle che ci sono nel training set')
+            
+            n_lang = df_users['Language'].max()
+            n_users = df_users['User'].max()
+            self.print_and_log('Ci sono {} Lingue e {} Users'.format(n_lang, n_users))
 
             print('Genero la sparse matrix')
             user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
