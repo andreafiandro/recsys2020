@@ -99,7 +99,7 @@ class RecSysUtility:
         df_grouped = pd.concat(to_concat, axis=0, ignore_index=True)
         df_grouped.to_csv('prediction_{}.csv'.format(label), index=False)
 
-    def xgboost_multilabel(self, nrows=10000):
+    def xgboost_multilabel(self, skipr):
         """
         Classificazione Multi-Label: alleno un solo modello, con più dati possibili (da gestire la scalabilità)
         Step:
@@ -113,7 +113,7 @@ class RecSysUtility:
         """
 
         # 1. Carico i dati
-        df_input = pd.read_csv(self.training_file, sep='\u0001', header=None, nrows=nrows)
+        df_input = pd.read_csv(self.training_file, sep='\u0001', header=None, skiprows=skipr)
 
         # 2. Pulisco i dati
         df_input = self.process_chunk_tsv(df_input)
