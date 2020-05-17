@@ -406,11 +406,16 @@ class RecSysUtility:
         print('Encoding utenti')
         df['User_id'] = df['User_id'].map(author_dic)
         print('Max ID Utenti {}'.format(df['User_id'].max()))
-        user_utili = set(df['User_id_engaging'].unique())
+
+        print('Divido tra pseudonegativi e positivi')
+        df_pseudo_negative, df_positive = self.split_pseudo_negative(df)
+        
+        user_utili = set(df_positive['User_id_engaging'].unique())
         print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
 
         labels = ['Like', 'Reply', 'Retweet', 'Retweet_with_comment']
 
+        # Calcolo le predictions solo per le interazioni positive
         for l in labels:
 
             # Carico tutti i modelli
@@ -474,13 +479,21 @@ class RecSysUtility:
             u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
             print('Dimensioni sparse matrix')
             print(u_features.shape)
-            df.loc[:, 'mf_{}'.format(l)] = model.predict(user, author, user_features = u_features)
+            df_positive.loc[:, 'mf_score_{}'.format(l)] = model.predict(user, author, user_features = u_features)
+            # Agli pseudonegativi metto uno score penalizzante
+            df_pseudo_negative.loc[:, 'mf_score_{}'.format(l)] = -999
 
+        # Ricongiungo i 2 df
+        df = pd.concat([df_positive, df_pseudo_negative], axis=0, ignore_index=True)
         json_languages.close()
         json_user.close()
         json_author.close()
         return df
         
+    def split_pseudo_negative(self, df):
+        df_pseudo_negative = df[df['Reply_engagement_timestamp'].isna() & df['Retweet_engagement_timestamp'].isna() & df['Retweet_with_comment_engagement_timestamp'].isna() & df['Like_engagement_timestamp'].isna()]
+        df_action = df[~df['Reply_engagement_timestamp'].isna() & ~df['Retweet_engagement_timestamp'].isna() & ~df['Retweet_with_comment_engagement_timestamp'].isna() & ~df['Like_engagement_timestamp'].isna()]
+        return df_pseudo_negative, df_action
     """
     ------------------------------------------------------------------------------------------
         GENERAZIONE DEI FILE DI TRAINING
