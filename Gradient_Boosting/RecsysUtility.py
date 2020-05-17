@@ -401,9 +401,11 @@ class RecSysUtility:
         print('Encoding autori')
         df['User_id_engaging'] = df['User_id_engaging'].map(user_dic)
 
+        print('Max ID Autori {}'.format(df['User_id_engaging'].max()))
+
         print('Encoding utenti')
         df['User_id'] = df['User_id'].map(author_dic)
-
+        print('Max ID Utenti {}'.format(df['User_id'].max()))
         user_utili = set(df['User_id_engaging'].unique())
         print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
 
