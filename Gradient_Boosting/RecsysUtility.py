@@ -395,7 +395,7 @@ class RecSysUtility:
 
         return df
 
-    def generate_features_mf(self, df, isVal=False):
+    def generate_features_mf(self, df, isVal=True):
 
         print('Carico tutti i dizionari per encoding')
         json_user = open("user_encoding.json", "r")
