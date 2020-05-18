@@ -153,11 +153,15 @@ class RecSysUtility:
         val = self.generate_features_lgb(val, user_features_file = './user_features_final.csv')
         val = self.encode_val_string_features(val)
         val = self.generate_features_mf(val, isVal=True)
+        print('Da predirre')
+        print(val.head(10))
         val = val.drop(not_useful_cols, axis=1)
         model = pickle.load(open('model_xgb_multilabel.dat', "rb"))
 
         print('Start Prediction')
         predictions = model.predict_proba(val)
+        print('Predizioni')
+        print(predictions)
         lista_label = ['Reply', 'Retweet', 'Comment', 'Like']
 
         for i in range(0,4):
