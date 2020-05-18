@@ -411,8 +411,9 @@ class RecSysUtility:
         if (isVal == False):
             print('Divido tra pseudonegativi e positivi')
             df_pseudo_negative, df_positive = self.split_pseudo_negative(df)
-        
-        user_utili = set(df_positive['User_id_engaging'].unique())
+            user_utili = set(df_positive['User_id_engaging'].unique())
+        else:
+            user_utili = set(df['User_id_engaging'].unique())
         print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
 
         labels = ['Like', 'Reply', 'Retweet', 'Retweet_with_comment']
