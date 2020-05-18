@@ -144,7 +144,7 @@ class RecSysUtility:
     def generate_submission_multilabel(self, validation_file):
 
         not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
-        val = pd.read_csv(validation_file, sep='\u0001', header=None, nrows=10000)
+        val = pd.read_csv(validation_file, sep='\u0001', header=None)
         val = self.process_chunk_tsv(val, isVal=True)
         df_out = pd.DataFrame(columns = ['Tweet_id', 'User_id', 'Prediction'])
         df_out['Tweet_id'] = val['Tweet_id']
