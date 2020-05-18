@@ -151,8 +151,11 @@ class RecSysUtility:
         df_out['User_id'] = val['User_id_engaging']
         print('Starting feature engineering...')
         val = self.generate_features_lgb(val, user_features_file = './user_features_final.csv')
+        print('Validation size: {}'.format(val.shape[0]))
         val = self.encode_val_string_features(val)
+        print('Validation size: {}'.format(val.shape[0]))
         val = self.generate_features_mf(val, isVal=True)
+        print('Validation size: {}'.format(val.shape[0]))
         print('Da predirre')
         print(val.head(10))
         val = val.drop(not_useful_cols, axis=1)
