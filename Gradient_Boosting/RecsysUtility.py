@@ -152,6 +152,7 @@ class RecSysUtility:
         print('Starting feature engineering...')
         val = self.generate_features_lgb(val, user_features_file = './user_features_final.csv')
         val = self.encode_val_string_features(val)
+        val = self.generate_features_mf(val, isVal=True)
         val = val.drop(not_useful_cols, axis=1)
         model = pickle.load(open('model_xgb_multilabel.dat', "rb"))
 
@@ -387,7 +388,7 @@ class RecSysUtility:
 
         return df
 
-    def generate_features_mf(self, df):
+    def generate_features_mf(self, df, isVal=False):
 
         print('Carico tutti i dizionari per encoding')
         json_user = open("user_encoding.json", "r")
@@ -407,8 +408,9 @@ class RecSysUtility:
         df['User_id'] = df['User_id'].map(author_dic)
         print('Max ID Utenti {}'.format(df['User_id'].max()))
 
-        print('Divido tra pseudonegativi e positivi')
-        df_pseudo_negative, df_positive = self.split_pseudo_negative(df)
+        if (isVal == False):
+            print('Divido tra pseudonegativi e positivi')
+            df_pseudo_negative, df_positive = self.split_pseudo_negative(df)
         
         user_utili = set(df_positive['User_id_engaging'].unique())
         print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
@@ -440,9 +442,15 @@ class RecSysUtility:
             dd_user['Value'] = 1
 
             print('Predictions MF')
-            author = np.array(df['User_id'].tolist())
-            user = np.array(df['User_id_engaging'].tolist())
-            print('#User: {} / #Author: {}'.format(user.shape[0], author.shape[0]))
+            if(isVal):
+                author = np.array(df['User_id'].tolist())
+                user = np.array(df['User_id_engaging'].tolist())
+                print('#User: {} / #Author: {}'.format(user.shape[0], author.shape[0]))
+            else:
+                author = np.array(df_positive['User_id'].tolist())
+                user = np.array(df_positive['User_id_engaging'].tolist())
+                print('#User: {} / #Author: {}'.format(user.shape[0], author.shape[0]))
+
             #u_features = np.array(user_features['User_features'].tolist())
             #print(u_features.shape)
             lang_considered = dd_user['Language'].max()
@@ -479,12 +487,17 @@ class RecSysUtility:
             u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
             print('Dimensioni sparse matrix')
             print(u_features.shape)
-            df_positive.loc[:, 'mf_score_{}'.format(l)] = model.predict(user, author, user_features = u_features)
-            # Agli pseudonegativi metto uno score penalizzante
-            df_pseudo_negative.loc[:, 'mf_score_{}'.format(l)] = -999
+            if(isVal==False):
+                df_positive.loc[:, 'mf_score_{}'.format(l)] = model.predict(user, author, user_features = u_features)
+                # Agli pseudonegativi metto uno score penalizzante
+                df_pseudo_negative.loc[:, 'mf_score_{}'.format(l)] = -999
+            else:
+                df.loc[:, 'mf_score_{}'.format(l)] = model.predict(user, author, user_features = u_features)
+
 
         # Ricongiungo i 2 df
-        df = pd.concat([df_positive, df_pseudo_negative], axis=0, ignore_index=True)
+        if(isVal == False):
+            df = pd.concat([df_positive, df_pseudo_negative], axis=0, ignore_index=True)
         json_languages.close()
         json_user.close()
         json_author.close()
