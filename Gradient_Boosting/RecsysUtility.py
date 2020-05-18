@@ -723,7 +723,7 @@ class RecSysUtility:
             user_dic = json.load(json_user)
             tmp = pd.DataFrame(columns = ['User', 'Author', 'Value'])
             tmp.loc[0] = [len(user_dic) - 1, 0, 0]
-            dd_interactions = dd_interactions.append(tmp, ignore_index=True)
+            dd_interactions = df_interactions.append(tmp, ignore_index=True)
             dd_interactions['User'] = dd_interactions['User'].astype(int)
             dd_interactions['Author'] = dd_interactions['Author'].astype(int)
             dd_interactions['Value'] = dd_interactions['Value'].astype(int)
