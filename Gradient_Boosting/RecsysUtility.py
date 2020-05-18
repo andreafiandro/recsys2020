@@ -702,6 +702,7 @@ class RecSysUtility:
 
     def generate_sparse_matrix(self, mtype, label):
         print('Genero la matrice {} per la label {}'.format(mtype, label))
+
         if(mtype == 'interactions'):
             training_file = 'mf_{}.csv'.format(label)
             dd_train = dd.read_csv(training_file, header=None)
@@ -716,6 +717,31 @@ class RecSysUtility:
             dd_interactions = dd_interaction.groupby(['User', 'Author'])['Value'].sum().reset_index()
             df_interactions = dd_interactions.compute()
             print('Genero la sparse matrix')
+                    
+            print('Aggiungo una nuova riga al df per user')
+            json_user = open("user_encoding.json", "r")
+            user_dic = json.load(json_user)
+            tmp = pd.DataFrame(columns = ['User', 'Author', 'Value'])
+            tmp.loc[0] = [len(user_dic) - 1, 0, 0]
+            dd_interactions = dd_interactions.append(tmp, ignore_index=True)
+            dd_interactions['User'] = dd_interactions['User'].astype(int)
+            dd_interactions['Author'] = dd_interactions['Author'].astype(int)
+            dd_interactions['Value'] = dd_interactions['Value'].astype(int)
+            json_user.close()
+
+            print('Aggiungo una nuova riga al df per autore')
+            json_author = open("author_encoding.json", "r")
+            author_dic = json.load(json_author)
+            tmp = pd.DataFrame(columns = ['User', 'Author', 'Value'])
+            tmp.loc[0] = [0, len(author_dic) - 1, 0]
+            dd_interactions = dd_interactions.append(tmp, ignore_index=True)
+            dd_interactions['User'] = dd_interactions['User'].astype(int)
+            dd_interactions['Author'] = dd_interactions['Author'].astype(int)
+            dd_interactions['Value'] = dd_interactions['Value'].astype(int)
+            json_author.close()
+
+            print(dd_interactions.head())
+
             interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))     
             pickle.dump(interactions, open('{}_{}_matrix'.format(mtype, label), "wb"))
         elif(mtype == 'author'):
@@ -740,15 +766,9 @@ class RecSysUtility:
             df_author['Value'] = 1
 
             print('Prendo solo gli autori delle interazioni')
-            #df_author = df_author[df_author['Author'].isin(set_authors)]
             df_author = dd_interactions.merge(df_author, how='left', left_on='Author', right_on='Author').compute()
-            #print('Autori utili')
-            #print(df_author.head())
 
-            #df_author.dropna(subset=['Hashtag', 'Author'], inplace=True)
-            #df_author = df_author[['Author', 'Hashtag', 'Value']]
 
-            
             print('Genero la sparse matrix')
             author_features = coo_matrix((df_author.Value, (df_author.Author, df_author.Hashtag)))   
             pickle.dump(author_features, open('{}_{}_matrix'.format(mtype, label), "wb"))
@@ -782,6 +802,33 @@ class RecSysUtility:
             df_users['Language'] = df_users['Language'].astype('int64')
             df_users['Value'] = 1
             
+            n_lang = df_users['Language'].max()
+            n_users = df_users['User'].max()
+            self.print_and_log('Ci sono {} Lingue e {} Users'.format(n_lang, n_users))
+
+            print('Aggiungo una nuova riga al df per user')
+            json_user = open("user_encoding.json", "r")
+            user_dic = json.load(json_user)
+            tmp = pd.DataFrame(columns = ['User', 'Language', 'Value'])
+            tmp.loc[0] = [len(user_dic) - 1, 0, 0]
+            df_users = df_users.append(tmp, ignore_index=True)
+            df_users['User'] = df_users['User'].astype(int)
+            df_users['Language'] = df_users['Language'].astype(int)
+            df_users['Value'] = df_users['Value'].astype(int)
+            json_user.close()
+
+            print('Aggiungo una nuova riga al df per lingua')
+            json_languages = open("language_encoding.json", "r")
+            language_dic = json.load(json_languages)
+            tmp = pd.DataFrame(columns = ['User', 'Language', 'Value'])
+            tmp.loc[0] = [0, len(language_dic) - 1, 0]
+            df_users = df_users.append(tmp, ignore_index=True)
+            df_users['User'] = df_users['User'].astype(int)
+            df_users['Language'] = df_users['Language'].astype(int)
+            df_users['Value'] = df_users['Value'].astype(int)
+            json_languages.close()
+
+            print('Dopo le modifiche')
             n_lang = df_users['Language'].max()
             n_users = df_users['User'].max()
             self.print_and_log('Ci sono {} Lingue e {} Users'.format(n_lang, n_users))
