@@ -694,8 +694,8 @@ class RecSysUtility:
         #author_features = pickle.load(open('author_{}_matrix'.format(label), "rb"))
         user_features = pickle.load(open('user_{}_matrix'.format(label), "rb"))
         print('Training MF')
-        model = LightFM(no_components=20, loss='warp-kos', learning_rate=0.1)
-        model.fit(interactions, epochs=20, num_threads=8, user_features=user_features)
+        model = LightFM(no_components=10, loss='warp-kos', learning_rate=0.1)
+        model.fit(interactions, epochs=10, num_threads=8, user_features=user_features, verbose=True)
 
         print('Salvo il modello')
         pickle.dump(model, open('mf_model_{}'.format(label), "wb"))
