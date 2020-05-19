@@ -409,11 +409,11 @@ class RecSysUtility:
         print('Encoding autori')
         df['User_id_engaging'] = df['User_id_engaging'].map(user_dic)
 
-        print('Max ID Autori {}'.format(df['User_id_engaging'].max()))
+        self.print_and_log('Max ID Autori {}'.format(df['User_id_engaging'].max()))
 
         print('Encoding utenti')
         df['User_id'] = df['User_id'].map(author_dic)
-        print('Max ID Utenti {}'.format(df['User_id'].max()))
+        self.print_and_log('Max ID Utenti {}'.format(df['User_id'].max()))
 
         if (isVal == False):
             print('Divido tra pseudonegativi e positivi')
@@ -421,9 +421,9 @@ class RecSysUtility:
             user_utili = set(df_positive['User_id_engaging'].unique())
         else:
             user_utili = set(df['User_id_engaging'].unique())
-        print('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
+        self.print_and_log('Ci sono {} utenti di cui calcolare le features'.format(len(user_utili)))
 
-        labels = ['Like', 'Reply', 'Retweet', 'Retweet_with_comment']
+        labels = ['Retweet_with_comment', 'Like', 'Reply', 'Retweet']
 
         # Calcolo le predictions solo per le interazioni positive
         for l in labels:
@@ -453,7 +453,7 @@ class RecSysUtility:
             if(isVal):
                 author = np.array(df['User_id'].tolist())
                 user = np.array(df['User_id_engaging'].tolist())
-                print('#User: {} / #Author: {}'.format(user.shape[0], author.shape[0]))
+                self.print_and_log('Label {} --- #User: {} / #Author: {}'.format(l, user.shape[0], author.shape[0]))
             else:
                 author = np.array(df_positive['User_id'].tolist())
                 user = np.array(df_positive['User_id_engaging'].tolist())
@@ -493,14 +493,15 @@ class RecSysUtility:
             #dd_user = pd.concat([dd_user, df_complete], axis=0, ignore_index=True)
             print('Genero matrice sparsa per le user features')
             u_features = coo_matrix((dd_user.Value, (dd_user.User, dd_user.Language)))  
-            print('Dimensioni sparse matrix')
-            print(u_features.shape)
+            self.print_and_log('Label {} --- Dimensioni sparse matrix'.format(l))
+            self.print_and_log(u_features.shape)
             if(isVal==False):
                 df_positive.loc[:, 'mf_score_{}'.format(l)] = model.predict(user, author, user_features = u_features)
                 # Agli pseudonegativi metto uno score penalizzante
                 df_pseudo_negative.loc[:, 'mf_score_{}'.format(l)] = -999
             else:
                 df.loc[:, 'mf_score_{}'.format(l)] = model.predict(user, author, user_features = u_features)
+                self.print_and_log(df.head())
 
 
         # Ricongiungo i 2 df
