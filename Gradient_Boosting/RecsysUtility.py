@@ -741,9 +741,10 @@ class RecSysUtility:
             dd_interactions['Value'] = dd_interactions['Value'].astype(int)
             json_author.close()
 
-            print(dd_interactions.head())
+            self.print_and_log(dd_interactions.head())
 
             interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))     
+            self.print_and_log('Label {} ---- Interactions sparse matrix'.format(label, interactions.shape))
             pickle.dump(interactions, open('{}_{}_matrix'.format(mtype, label), "wb"))
         elif(mtype == 'author'):
             training_file = 'mf_{}.csv'.format(label)
@@ -836,6 +837,7 @@ class RecSysUtility:
 
             print('Genero la sparse matrix')
             user_features = coo_matrix((df_users.Value, (df_users.User, df_users.Language))) 
+            self.print_and_log('Label {} ---- User feature sparse matrix'.format(label, user_features.shape))
             pickle.dump(user_features, open('{}_{}_matrix'.format(mtype, label), "wb"))
     """
     ------------------------------------------------------------------------------------------
