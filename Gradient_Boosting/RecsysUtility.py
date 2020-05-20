@@ -724,10 +724,10 @@ class RecSysUtility:
             user_dic = json.load(json_user)
             tmp = pd.DataFrame(columns = ['User', 'Author', 'Value'])
             tmp.loc[0] = [len(user_dic) - 1, 0, 0]
-            dd_interactions = df_interactions.append(tmp, ignore_index=True)
-            dd_interactions['User'] = dd_interactions['User'].astype(int)
-            dd_interactions['Author'] = dd_interactions['Author'].astype(int)
-            dd_interactions['Value'] = dd_interactions['Value'].astype(int)
+            df_interactions = df_interactions.append(tmp, ignore_index=True)
+            df_interactions['User'] = df_interactions['User'].astype(int)
+            df_interactions['Author'] = df_interactions['Author'].astype(int)
+            df_interactions['Value'] = df_interactions['Value'].astype(int)
             json_user.close()
 
             print('Aggiungo una nuova riga al df per autore')
@@ -735,13 +735,13 @@ class RecSysUtility:
             author_dic = json.load(json_author)
             tmp = pd.DataFrame(columns = ['User', 'Author', 'Value'])
             tmp.loc[0] = [0, len(author_dic) - 1, 0]
-            dd_interactions = dd_interactions.append(tmp, ignore_index=True)
-            dd_interactions['User'] = dd_interactions['User'].astype(int)
-            dd_interactions['Author'] = dd_interactions['Author'].astype(int)
-            dd_interactions['Value'] = dd_interactions['Value'].astype(int)
+            df_interactions = df_interactions.append(tmp, ignore_index=True)
+            df_interactions['User'] = df_interactions['User'].astype(int)
+            df_interactions['Author'] = df_interactions['Author'].astype(int)
+            df_interactions['Value'] = df_interactions['Value'].astype(int)
             json_author.close()
 
-            self.print_and_log(dd_interactions.head())
+            print(df_interactions.head())
 
             interactions = coo_matrix((df_interactions.Value, (df_interactions.User, df_interactions.Author)))     
             self.print_and_log('Label {} ---- Interactions sparse matrix #User: {} / #Author: {}'.format(label, interactions.shape[0], interactions.shape[1]))
@@ -806,7 +806,7 @@ class RecSysUtility:
             
             n_lang = df_users['Language'].max()
             n_users = df_users['User'].max()
-            self.print_and_log('Ci sono {} Lingue e {} Users'.format(n_lang, n_users))
+            print('Ci sono {} Lingue e {} Users'.format(n_lang, n_users))
 
             print('Aggiungo una nuova riga al df per user')
             json_user = open("user_encoding.json", "r")
