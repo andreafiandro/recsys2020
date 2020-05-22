@@ -1035,6 +1035,6 @@ class RecSysUtility:
 
         lista_label = ['Reply', 'Retweet', 'Comment', 'Like']
         for l in lista_label:
-            df_val[['Tweet_id', 'User_id_engaging', 'prediction_{}']].to_csv('prediction_{}.csv', header = None, index = False)
+            df_val[['Tweet_id', 'User_id_engaging', 'prediction_{}'.format(l)]].to_csv('prediction_{}.csv'.format(l), header = None, index = False)
         
         return
