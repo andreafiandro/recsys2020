@@ -220,7 +220,7 @@ def preprocess_features(df, args):
     y = df[df.columns[-4:]] # column name prediction
 
     dummy = RecSysUtility('')
-    x = dummy.generate_features_lgb(x, user_features_file='./checkpoint/user_features_final.csv')
+    x = dummy.generate_features_lgb(x, user_features_file=args.ufeatspath)
     x = dummy.encode_string_features(x)
     not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
     x.drop(not_useful_cols, axis=1, inplace=True)
@@ -282,9 +282,9 @@ def main():
     )
     parser.add_argument(
         "--tokcolumn",
-        default=None,
+        default='Text_tokens',
         type=str,
-        required=True,
+        required=False,
         help="Column name for bert tokens (e.g. \"text tokens\")"
     )
     parser.add_argument(
@@ -321,6 +321,13 @@ def main():
         type=str,
         required=False,
         help="type yes or something <-> to use text+extracted features for cnn"
+    )
+    parser.add_argument(
+        '--ufeatspath',
+        default='./checkpoint/user_features_final.csv',
+        type=str,
+        required=False
+        help='Path to user_features.csv. Default=\'./checkpoint/user_features_final.csv\''
     )
     
     args = parser.parse_args()
@@ -392,7 +399,7 @@ def main():
     model.to(device)
 
     optimizer = optim.Adam(model.parameters())
-
+    
     # instantiate CrossEntropy with class penalization based on class support
 
     # sostituita da altro sopra perchè il calcolo dei pesi è cambiato  
@@ -406,14 +413,17 @@ def main():
     # weights as NEGATIVES / POSITIVES Team JP
     # It is a weight of positive examples. Must be a vector with length equal to the number of classes
     # https://pytorch.org/docs/stable/nn.html#bcewithlogitsloss
-    loss_weights = classes_support.apply(lambda positives: (number_of_training_rows-positives)/positives).tolist()
     positive_rates = torch.FloatTensor(test_positive_rates)
+    """ No Weigths Right now
+    loss_weights = classes_support.apply(lambda positives: (number_of_training_rows-positives)/positives).tolist()
     #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
+    
     if _PRINT_INTERMEDIATE_LOG:
         print('LOSS WEIGHTS: '+str(loss_weights))
     loss_weights = torch.tensor(loss_weights)
-    # criterion = nn.CrossEntropyLoss(weight=loss_weights).to(device) # single label
     criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device)
+    """
+    criterion = nn.BCEWithLogitsLoss().to(device) #No weights
     rce_loss = Multi_Label_RCE_Loss(ctr = positive_rates).to(device)
     # def calculate_ctr(gt):
     #    positive = len([x for x in gt if x == 1])
