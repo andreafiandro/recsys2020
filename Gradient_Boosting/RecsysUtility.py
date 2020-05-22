@@ -1028,10 +1028,10 @@ class RecSysUtility:
         df_val = df_val[['Tweet_id', 'User_id_engaging']]
         
         
-        df_val.loc[:,'prediction_like'] = ctr_like 
-        df_val.loc[:,'prediction_reply'] = ctr_reply 
-        df_val.loc[:,'prediction_retweet'] = ctr_retweet 
-        df_val.loc[:,'prediction_comment'] = ctr_comment 
+        df_val.loc[:,'prediction_Like'] = ctr_like 
+        df_val.loc[:,'prediction_Reply'] = ctr_reply 
+        df_val.loc[:,'prediction_Retweet'] = ctr_retweet 
+        df_val.loc[:,'prediction_Comment'] = ctr_comment 
 
         lista_label = ['Reply', 'Retweet', 'Comment', 'Like']
         for l in lista_label:
