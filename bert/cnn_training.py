@@ -220,7 +220,7 @@ def preprocess_features(df, args):
     y = df[df.columns[-4:]] # column name prediction
 
     dummy = RecSysUtility('')
-    x = dummy.generate_features_lgb(x, user_features_file=args.ufeatspath)
+    x = dummy.generate_features_lgb(x, user_features_file=args.ufeatspath) #Note: Slithly different from other branch this returns text_tokens column
     x = dummy.encode_string_features(x)
     not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
     x.drop(not_useful_cols, axis=1, inplace=True)

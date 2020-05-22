@@ -44,8 +44,8 @@ def prepro_features(df, args):
     user = df[args.usercolumn] 
     
     dummy = RecSysUtility('')
-    feats = dummy.generate_features_lgb(df, user_features_file=args.ufeatspath)
-    feats = dummy.encode_string_features(feats)
+    feats = dummy.generate_features_lgb(df, user_features_file=args.ufeatspath) #Note: Slithly different from other branch this returns text_tokens column
+    feats = dummy.encode_val_string_features(feats)
     not_useful_cols = [args.tokcolumn, args.tweetidcolumn, 'User_id', args.usercolumn]
     feats.drop(not_useful_cols, axis=1, inplace=True)
     for col in feats.columns[:]:
