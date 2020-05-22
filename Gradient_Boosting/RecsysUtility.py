@@ -1017,3 +1017,24 @@ class RecSysUtility:
         return
 
         
+    def magic_algorithm(self, validation_file):
+        tot_lines = 123126259
+        ctr_like = 52719548 / tot_lines
+        ctr_reply = 3108287 / tot_lines
+        ctr_retweet = 13264420 / tot_lines
+        ctr_comment = 884082 / tot_lines
+        df_val = pd.read_csv(validation_file, sep='\u0001', header=None)
+        df_val = self.process_chunk_tsv(df_val, isVal=True)
+        df_val = df_val[['Tweet_id', 'User_id_engaging']]
+        
+        
+        df_val.loc[:,'prediction_like'] = ctr_like 
+        df_val.loc[:,'prediction_reply'] = ctr_reply 
+        df_val.loc[:,'prediction_retweet'] = ctr_retweet 
+        df_val.loc[:,'prediction_comment'] = ctr_comment 
+
+        lista_label = ['Reply', 'Retweet', 'Comment', 'Like']
+        for l in lista_label:
+            df_val[['Tweet_id', 'User_id_engaging', 'prediction_{}']].to_csv('prediction_{}.csv', header = None, index = False)
+        
+        return
