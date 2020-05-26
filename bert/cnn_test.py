@@ -44,7 +44,7 @@ def prepro_features(df, args):
     user = df[args.usercolumn] 
     
     dummy = RecSysUtility('')
-    feats = dummy.generate_features_lgb(df, user_features_file=args.ufeatspath) #Note: Slithly different from other branch this returns text_tokens column
+    feats = dummy.generate_features_lgb_mod(df, user_features_file=args.ufeatspath) #Note: Slithly different from other branch this returns text_tokens column
     feats = dummy.encode_val_string_features(feats)
     not_useful_cols = [args.tokcolumn, args.tweetidcolumn, 'User_id', args.usercolumn]
     feats.drop(not_useful_cols, axis=1, inplace=True)
@@ -54,7 +54,7 @@ def prepro_features(df, args):
     text_test = text.values.tolist()
     tweetid_test = tweetid.values.tolist()
     user_test = user.values.tolist()
-    feats_test = feats.iloc[:,:].values.tolist()
+    feats_test = feats.values.tolist()
 
     return text_test, tweetid_test, user_test, feats_test
 
@@ -100,9 +100,9 @@ def main():
     )
     parser.add_argument(
         "--workers",
-        default=None,
+        default=2,
         type=int,
-        required=True,
+        required=False,
         help="Number of workers for the training"
     )
     parser.add_argument(

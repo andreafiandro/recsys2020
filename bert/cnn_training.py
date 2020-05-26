@@ -52,7 +52,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
     best_rce = math.inf
     best_rce_by_label = None
     saving_file = os.path.join(TrainingConfig._checkpoint_path, 'cnn_model_test.pth')
-    
+    #torch.autograd.set_detect_anomaly(True)
     for epoch in range(epochs):
         print('-' * 10)
         print('Epoch {}/{}'.format(epoch, epochs - 1))
@@ -89,10 +89,7 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                     # aggiunto per via dell'errore 
                     # Runtime Error: result type Float cannot be cast to the desired output type Long
                     targets = targets.float()
-
-                    loss = criterion(logits, targets)
-                    loss.to(device)
-
+                    loss = criterion(logits, targets).to(device)
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
@@ -104,16 +101,15 @@ def train_model(model, dataloaders_dict, datasizes_dict, criterion, optimizer, s
                         else:
                             eval_logits = logits
                             eval_targets = targets
+
                     running_loss += loss.item() * inputs.size(0)
 
             epoch_loss = running_loss / datasizes_dict[phase]
             
             
             #output_acc = correct_output_num.double() / datasizes_dict[phase]
-
             print('{} total loss: {:.4f} '.format(phase,epoch_loss))
             #print('{} output_acc: {:.4f}'.format(phase, output_acc))
-
             if phase == 'val':
                 running_rce = rce_loss(eval_logits, eval_targets)
                 print('running rce loss:', running_rce)
@@ -220,40 +216,24 @@ def preprocess_features(df, args):
     y = df[df.columns[-4:]] # column name prediction
 
     dummy = RecSysUtility('')
-    x = dummy.generate_features_lgb(x, user_features_file=args.ufeatspath) #Note: Slithly different from other branch this returns text_tokens column
+    x = dummy.generate_features_lgb_mod(x, user_features_file=args.ufeatspath) #Note: Sligthly different from other branch this returns text_tokens column
     x = dummy.encode_string_features(x)
     not_useful_cols = ['Tweet_id', 'User_id', 'User_id_engaging']
     x.drop(not_useful_cols, axis=1, inplace=True)
     for col in x.columns[1:]:
         x[col] = x[col].astype(float) #pd.to_numeric(x[col],downcast='float')
 
-    ##########################################################################
-    # The labels are not enum but are represented in the dataset
-    # as empty cell if there wasn't no engagment or with a timestamp if was an engagment.
-    # The necessary transformations will take place through df.fillna(0) and
-    # transformation lambda
-    # Set 1 for timestamps (values > 0)
-    # clip(upper=threshold) works in that way
-    #   
-    #   set y[i] = threshold, if y[i] > threshold
-    ##########################################################################
     y = y.clip(upper=1)
 
     # Split in train and test part the chunk
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=args.testsplit, random_state=42) 
-    # Answer to the Ultimate Question of Life, the Universe, and Everything
-
+    # Answer to the Ultimate Question of Life, the Universe, and Everything: 42
+    
     # Get the support of each classes in the training (used then to balance the loss)
     # classes_support = y_train.value_counts() # single label
     classes_support = y_train.astype(bool).sum(axis=0).apply(lambda x: 1 if x == 0 else x )
     test_positive_rates = y_test.astype(bool).sum(axis=0) / len(y_test.index) #positivi/tot
-    # classes_support = [1 if x == 0 else x for x in classes_support]
-    
-    # In this case, due the nature of text tokens field, we will have a list of string. 
-    # Each string is a sequence of token ids separed by | , that have to be correctly transformed into a list 
-    # (this will be done by text_data function).
-    #x_train = x_train.values.tolist()
-    #x_test = x_test.values.tolist()
+
     return x_train, y_train, x_test, y_test, classes_support, test_positive_rates
 
 def main():
@@ -326,10 +306,16 @@ def main():
         '--ufeatspath',
         default='./checkpoint/user_features_final.csv',
         type=str,
-        required=False
+        required=False,
         help='Path to user_features.csv. Default=\'./checkpoint/user_features_final.csv\''
     )
-    
+    parser.add_argument(
+        '--use_weights',
+        default=None,
+        type=str,
+        required=False,
+        help='Use or not weights for loss initialization (yes/no), default=No'
+    )
     args = parser.parse_args()
     if args.features:
         print('##### WORKING WITH FEATURES #####')
@@ -414,16 +400,18 @@ def main():
     # It is a weight of positive examples. Must be a vector with length equal to the number of classes
     # https://pytorch.org/docs/stable/nn.html#bcewithlogitsloss
     positive_rates = torch.FloatTensor(test_positive_rates)
-    """ No Weigths Right now
-    loss_weights = classes_support.apply(lambda positives: (number_of_training_rows-positives)/positives).tolist()
-    #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
-    
-    if _PRINT_INTERMEDIATE_LOG:
-        print('LOSS WEIGHTS: '+str(loss_weights))
-    loss_weights = torch.tensor(loss_weights)
-    criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device)
-    """
-    criterion = nn.BCEWithLogitsLoss().to(device) #No weights
+    if args.use_weights is not None:
+        loss_weights = classes_support.apply(lambda positives: (number_of_training_rows-positives)/positives).tolist()
+        #loss_weights = [nrows/ classes_support[0], nrows/classes_support[1]]
+        
+        if _PRINT_INTERMEDIATE_LOG:
+            print('LOSS WEIGHTS: '+str(loss_weights))
+        loss_weights = torch.tensor(loss_weights)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weights).to(device)
+    else:
+        print('### No Loss Weights ###')
+        criterion = nn.BCEWithLogitsLoss().to(device) #No weights
+
     rce_loss = Multi_Label_RCE_Loss(ctr = positive_rates).to(device)
     # def calculate_ctr(gt):
     #    positive = len([x for x in gt if x == 1])

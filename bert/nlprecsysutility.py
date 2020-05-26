@@ -153,27 +153,31 @@ class RecSysUtility:
         return df
     
 
-    def generate_features_lgb(self, df, user_features_file='./user_features_final.csv'):
+    def generate_features_lgb_mod(self, df, user_features_file='./user_features_final.csv'):
         """
         Function to generate the features included in the gradient boosting model.
         """
 
         # Count the number of the items in the following columns
         # TODO: Present link, media e domains per ora sono semplicemente sommati, in realtà andrebbe specificato il tipo di media con il numero di elementi (es. 2 video, 3 foto ecc...)
+        time_col_to_days = ['Timestamp', 'Account_creation_time', 'Account_creation_time_engaging']
+        for col in time_col_to_days:
+            df.loc[:, col] = df[col] / 86400
+            
         col_to_count=['Hashtags', 'Present_media', 'Present_links', 'Present_domains']
 
         for col in col_to_count:
-            df[col] = df[col].apply(lambda x: self.count_item(x))
-        df['Text_len'] = df['Text_tokens'].apply(lambda x: self.count_item(x) -2)
+            df.loc[:, col] = df[col].apply(lambda x: self.count_item(x))
+        df.loc[:, 'Text_len'] = df['Text_tokens'].apply(lambda x: self.count_item(x) -2)
 
-        # Instead of timestamp, I count the seconds elapsed from the account creation
-        current_timestamp = int(time.time())
-        df['Account_creation_time'] = df['Account_creation_time'].apply(lambda x: current_timestamp - x)
-        df['Account_creation_time_engaging'] = df['Account_creation_time_engaging'].apply(lambda x: current_timestamp - x)
+        # Instead of timestamp, I count the days elapsed from the account creation
+        current_timestamp = int(time.time()) / 86400
+        df.loc[:, 'Account_creation_time'] = df['Account_creation_time'].apply(lambda x: current_timestamp - x)
+        df.loc[:, 'Account_creation_time_engaging'] = df['Account_creation_time_engaging'].apply(lambda x: current_timestamp - x)
         
         # Runtime Features
-        df.loc[:,"follow_ratio_author"] = df.loc[:,'Following_count'] / df.loc[:,'Follower_count']
-        df.loc[:,"follow_ratio_user"] = df.loc[:,'Following_count_engaging'] / df.loc[:,'Follower_count_engaging']
+        df.loc[:,"follow_ratio_author"] = df.loc[:,'Following_count'] / (df.loc[:,'Follower_count'] + 1)
+        df.loc[:,"follow_ratio_user"] = df.loc[:,'Following_count_engaging'] / (df.loc[:,'Follower_count_engaging'] + 1)
         df.loc[:,'Elapsed_time_author'] = df['Timestamp'] - df['Account_creation_time']
         df.loc[:,'Elapsed_time_user'] = df['Timestamp'] - df['Account_creation_time_engaging']
 
@@ -183,14 +187,14 @@ class RecSysUtility:
         df = df.merge(df_input, how='left', left_on='User_id_engaging', right_on='User_id_engaging')
         
         # Create other features
-        df.loc[:,'ratio_reply'] = df.loc[:,'Tot_reply'] / df.loc[:,'Tot_action']
-        df.loc[:,'ratio_retweet'] = df.loc[:,'Tot_retweet'] / df.loc[:,'Tot_action']
-        df.loc[:,'ratio_comment'] = df.loc[:,'Tot_comment'] / df.loc[:,'Tot_action']
-        df.loc[:,'ratio_like'] = df.loc[:,'Tot_like'] / df.loc[:,'Tot_action']
+        df.loc[:,'ratio_reply'] = df.loc[:,'Tot_reply'] / (df.loc[:,'Tot_action'] + 1)
+        df.loc[:,'ratio_retweet'] = df.loc[:,'Tot_retweet'] / (df.loc[:,'Tot_action'] + 1)
+        df.loc[:,'ratio_comment'] = df.loc[:,'Tot_comment'] / (df.loc[:,'Tot_action'] + 1)
+        df.loc[:,'ratio_like'] = df.loc[:,'Tot_like'] / (df.loc[:,'Tot_action'] + 1)
 
         # Riempio i valori NaN con -1 per dare un informazione in più al gradient boosting
         col_to_fill = ['Tot_reply', 'Tot_retweet', 'Tot_comment', 'Tot_like', 'Tot_action', 'ratio_reply', 'ratio_retweet', 'ratio_comment', 'ratio_like']
-        df[col_to_fill] = df[col_to_fill].fillna(value=-1)
+        df[col_to_fill] = df[col_to_fill].fillna(value=0)
 
         return df
     
