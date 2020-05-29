@@ -49,8 +49,8 @@ def prepro_features(df, args):
     not_useful_cols = [args.tokcolumn, args.tweetidcolumn, 'User_id', args.usercolumn]
     feats.drop(not_useful_cols, axis=1, inplace=True)
     for col in feats.columns[:]:
-        x[col] = feats[col].astype(float)
-    
+        feats[col] = feats[col].astype(float)
+
     text_test = text.values.tolist()
     tweetid_test = tweetid.values.tolist()
     user_test = user.values.tolist()
@@ -156,7 +156,7 @@ def main():
     test_data = torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=False, num_workers=args.workers)
 
     if _PRINT_INTERMEDIATE_LOG:
-        print("Number of training rows "+str(len(test_data)))
+        print("Number of testing rows "+str(len(test_data)))
     # move model to device
 
     model.to(device)

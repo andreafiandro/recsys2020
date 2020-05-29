@@ -290,9 +290,9 @@ def main():
     )
     parser.add_argument(
         "--testsplit",
-        default=None,
+        default=0.10,
         type=float,
-        required=True,
+        required=False,
         help="Test split size (e.g. 0.10)"
     )
     parser.add_argument(
