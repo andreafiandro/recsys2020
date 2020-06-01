@@ -42,7 +42,7 @@ def prepro_features(df, args):
     text = df[args.tokcolumn]
     tweetid = df[args.tweetidcolumn]
     user = df[args.usercolumn] 
-    
+
     dummy = RecSysUtility('')
     feats = dummy.generate_features_lgb_mod(df, user_features_file=args.ufeatspath) #Note: Slithly different from other branch this returns text_tokens column
     feats = dummy.encode_val_string_features(feats)
@@ -55,7 +55,7 @@ def prepro_features(df, args):
     tweetid_test = tweetid.values.tolist()
     user_test = user.values.tolist()
     feats_test = feats.values.tolist()
-
+    
     return text_test, tweetid_test, user_test, feats_test
 
 def main():
@@ -126,10 +126,11 @@ def main():
     bert_model = BERT(pretrained=TrainingConfig._pretrained_bert, n_labels=TrainingConfig._num_labels, dropout_prob = TrainingConfig._dropout_prob, freeze_bert = True)
     if args.features:
         cnn = CNN(dim=798, length=21) #768 cls +30 features = 768 % 21 => batch_sizex21x38
+        model = FEATURES_ENSEMBLE(bert = bert_model, model_b = cnn)
     else:
         cnn = CNN()
-
-    model = FEATURES_ENSEMBLE(bert = bert_model, model_b = cnn)
+        model = TEXT_ENSEMBLE(bert = bert_model, model_b = cnn)
+    
     # load del nostro modello per la fase di test,  andrebbe caricato questo direttamente al posto del pretrained bert
 
     checkpoint = torch.load(os.path.join(TrainingConfig._checkpoint_path, 'cnn_model_test.pth'))
@@ -153,12 +154,12 @@ def main():
         # create the dataset objects
         test_data = BertDatasetTest(xy_list=[text_test_chunk,tweetid_test_chunk,user_test_chunk])
     
-    test_data = torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=False, num_workers=args.workers)
-
     if _PRINT_INTERMEDIATE_LOG:
         print("Number of testing rows "+str(len(test_data)))
-    # move model to device
 
+    test_data = torch.utils.data.DataLoader(test_data, batch_size=args.batch, shuffle=False, num_workers=args.workers)
+
+    # move model to device
     model.to(device)
 
     # test dataframe 
@@ -180,7 +181,6 @@ def main():
 
         # from logits to probability
         logits = torch.sigmoid(logits)
-
         # traspongo i logit per inserirli corettamente nel dataframe
         # così come sono i dati ora sono trasposti rispetto a come li prende dataframe
 
