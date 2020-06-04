@@ -1,30 +1,22 @@
-from pytorch_pretrained_bert import BertTokenizer
-from bert_serving.server.helper import get_args_parser
+class TrainingConfig():
+    _bert_lr = 5e-5
+    _cls_lr = .001
+    
+    _scheduler_step = 3
+    _scheduler_gamma = 0.1
 
-START_LINE = 0
-CHUNK_NUM = "0"
-FILENAME = "../input/training_chunk_"+CHUNK_NUM+".csv"
-PAD_MAX_LEN = 192
-SEQ_MAX_LEN = 'NONE'
-POOL_STR = 'CLS_TOKEN'
-PORT = '5555'
-PORT_OUT = '5556'
-BC_IP = '0.0.0.0'
+    _dropout_prob = .5
 
-PATH_TO_MODEL = "../models/"
-PRETRAINED_BERT_PATH = "../pretrained_bert/multi_cased_L-12_H-768_A-12"
-PRETRAINED_PYTORCH_BERT = 'bert-base-multilingual-cased'
+    _num_labels = 4
 
-TOKENIZER = BertTokenizer.from_pretrained(
-    'bert-base-multilingual-cased',
-    do_lower_case=False
-)
-ARGS = get_args_parser().parse_args(
-        ['-model_dir', PRETRAINED_BERT_PATH,
-         '-port', PORT,
-         '-port_out', PORT_OUT,
-         '-max_seq_len', SEQ_MAX_LEN,
-         '-mask_cls_sep',
-         '-device_map=0',
-         '-pooling_strategy', POOL_STR]
-)
+    _not_finetuning_bert = True
+    _checkpoint_path = 'checkpoint/'
+    _pretrained_bert = 'bert-base-multilingual-cased'
+
+class TestConfig():
+    _output_dir = '../recsys2020_submission'
+    
+class PreproDatasetConfig():
+    _chunk_size = 1000000
+    _test_file  = '../recsys2020_test_chunk/test_submission.tsv'
+    _output_dir = '../recsys2020_test_chunk'

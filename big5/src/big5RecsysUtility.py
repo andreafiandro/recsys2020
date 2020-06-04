@@ -1,8 +1,12 @@
-import config as c
+import configSimo as c
 import torch
 import torch.nn as nn
 from pytorch_pretrained_bert import BertModel
 import pandas as pd
+from sklearn.cluster import AgglomerativeClustering
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
+import numpy as np
 
 
 class Big5Recsys:
@@ -112,7 +116,7 @@ class Big5Recsys:
         indexed_tokens = list(map(int, indexed_tokens))
         return indexed_tokens
 
-    def map_output_features(self, filename):
+    def map_output_features(filename):
         '''
             Receive training_chunk_n.csv
             Map output features to 1 and 0 (NaN and timestamp)
@@ -122,16 +126,16 @@ class Big5Recsys:
         dataset = pd.read_csv(filename)
         # print(dataset.shape)
         token_and_labels = \
-            dataset.loc[:, ['Text tokens',
-                            'Reply engagement timestamp',
-                            'Retweet engagement timestamp',
-                            'Retweet with comment engagement timestamp',
-                            'Like engagement timestamp']]
+            dataset.loc[:, ['Text_tokens',
+                            'Reply_engagement_timestamp',
+                            'Retweet_engagement_timestamp',
+                            'Retweet_with_comment_engagement_timestamp',
+                            'Like_engagement_timestamp']]
         # print(len(token_and_labels.index))
-        for col in ['Reply engagement timestamp',
-                    'Retweet engagement timestamp',
-                    'Retweet with comment engagement timestamp',
-                    'Like engagement timestamp']:
+        for col in ['Reply_engagement_timestamp',
+                    'Retweet_engagement_timestamp',
+                    'Retweet_with_comment_engagement_timestamp',
+                    'Like_engagement_timestamp']:
             token_and_labels[col] = \
                 token_and_labels[col].\
                 apply(lambda x: 1 if not pd.isnull(x) else 0)
@@ -202,8 +206,8 @@ class Big5Recsys:
         self.model_N = self.load_big5_model("N")
 
     def from_text_to_token_id(self, text):
-        ''' 
-            how to use this function
+        '''
+        # how to use this function
         bu = Big5Recsys()
         text = "retweet"
         bu.from_text_to_token_id(text)
@@ -222,3 +226,160 @@ class Big5Recsys:
         # Display the words with their indeces.
         for tup in zip(tokenized_text, indexed_tokens):
             print('{:<12} {:>6,}'.format(tup[0], tup[1]))
+
+    def create_topic_label_file_from_be(self, dfin, fileout, n_topics=20):
+        # emb = pd.read_csv(filein, header=None)  # csv containing bert embeddings
+        model = AgglomerativeClustering(n_clusters=n_topics)
+        yhat = model.fit_predict(dfin)
+        fo = open(fileout, "w")
+        for y in yhat:
+            fo.write(str(y)+"\n")
+        fo.close()
+
+    def write_emb_to_file(
+            self, bc,
+            filein, column_in_name, already_text,
+            fileout, start_line
+            ):
+        be = open(fileout, "a")
+        df = pd.read_csv(filein)
+        to_emb = df.loc[:, column_in_name]
+        for i in range(start_line, df.shape[0]):
+            if already_text is False:  # bert_tokens | separated
+                tweet = self.from_text_tokens_to_text(to_emb[i])
+            else:
+                tweet = to_emb[i]
+            if pd.isnull(to_emb[i]):
+                print("\n\n"+str(i)+"<----------------------------------- \n")
+                continue
+            tweetEmbeddings = bc.encode([tweet])
+            emb = tweetEmbeddings[0]
+            for elem in emb[:-1]:
+                be.write(str(elem)+",")
+            be.write(str(emb[-1])+"\n")
+        be.close()
+
+
+class MyClassifier(nn.Module):
+    def __init__(self, input_size, output_size):
+        super().__init__()
+        self.epochs = 100
+        self.batch_size = 100
+        self.loss_fn = nn.CrossEntropyLoss()
+        self.model = nn.Sequential(
+            nn.Linear(768, 300),
+            nn.LeakyReLU(0.01, inplace=True),
+            nn.Linear(300, int(output_size)))
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+
+    def load_data(self, dfin, csv_target):
+        #x = pd.read_csv(csv_input, header=None)
+        dfsent = pd.read_csv(csv_target)
+        # y = dfsent["sentiment"].astype("category").cat.codes
+        y = dfsent["sentiment"].astype("category").cat.codes
+        print(y.head)
+        print(y.head)
+        #inputs = torch.from_numpy(np.array(x))
+        inputs = dfin.type(torch.FloatTensor)
+        target = torch.from_numpy(np.array(y))
+        target = target.type(torch.LongTensor)
+        train_ds = TensorDataset(inputs, target)
+        self.train_dl = DataLoader(train_ds, batch_size=self.batch_size,
+                                   shuffle=True)
+
+    def fit_and_save(self, model_fileout):
+        for epoch in range(self.epochs):
+            for xb, yb in self.train_dl:
+                #print("xb", xb)
+                pred = self.model(xb)
+                #print("pred", pred)
+                #print("yb", yb)
+                loss = self.loss_fn(pred, yb)
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+            if(epoch+1) % 10 == 0:
+                print('Epoch [%d/%d], Loss: %.4f' % (epoch+1, self.epochs,
+                                                     loss.item()))
+        torch.save(self.model.state_dict(), model_fileout)
+
+
+class MergeClassifier(nn.Module):
+    def __init__(self):
+        super().__init__()
+        print("init")
+        self.epochs = 10
+        self.batch_size = 10
+        self.loss_fn = nn.BCELoss()
+        self.fc = nn.Linear(768, 300)
+        self.fc1 = nn.Linear(300, 30)
+        self.fc2 = nn.Linear(30+7, 1)
+        self.out_act = nn.Sigmoid()
+
+    def load_data(self, model, dfTens1, dfTens2, csv_target):
+        print("load")
+        self.optimizer = torch.optim.Adam(model.parameters(),  lr=0.001)
+        #x = pd.read_csv(csv_input, header=None)
+        dftl = Big5Recsys.map_output_features(csv_target)
+        # y = dfsent["sentiment"].astype("category").cat.codes
+        y = dftl["Like_engagement_timestamp"]
+        y = y.iloc[0:100]
+        inputs = dfTens1  # torch.from_numpy(np.array(x))
+        inputs = inputs.type(torch.FloatTensor)
+        inputs2 = dfTens2  # torch.from_numpy(np.array(x2))
+        inputs2 = inputs2.type(torch.FloatTensor)
+        target = torch.from_numpy(np.array(y))
+        target = target.type(torch.FloatTensor)
+        #print("inputs", inputs)
+        #print("inputs2", inputs2)
+        train_ds = TensorDataset(inputs, inputs2, target)
+        self.train_dl = DataLoader(train_ds, batch_size=self.batch_size)
+
+    def forward(self, emb, sentopbig):
+        x = self.fc(emb)
+        x = self.fc1(x)
+        x = torch.cat((x, sentopbig), dim=1)
+        x = self.fc2(x)
+        y = self.out_act(x)
+        return y
+
+    def fit_and_save(self, model_fileout):
+        for epoch in range(self.epochs):
+            for batch_idx, (xb0, xb1, yb) in enumerate(self.train_dl):
+                #print("xb0", xb0)
+                #print("xb1", xb1)
+                #print("yb", yb)
+                #exit()
+                pred = self.forward(xb0, xb1)
+                print("pred", pred)
+                print("yb", yb)
+                # yb = yb.view(yb.size()[0], 1)
+                #exit()
+                loss = self.loss_fn(pred.type(torch.FloatTensor), yb.type(torch.FloatTensor))
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+            if(epoch+1) % 1 == 0:
+                print('Epoch [%d/%d], Loss: %.4f' % (epoch+1, self.epochs,
+                                                     loss.item()))
+        torch.save(self.model.state_dict(), model_fileout)
+
+
+class binaryClassification(nn.Module):
+    def __init__(self):
+        super(binaryClassification, self).__init__()
+
+        self.layer_1 = nn.Linear(768, 300)
+        self.layer_2 = nn.Linear(300, 30)
+        self.layer_out = nn.Linear(30+7, 1)
+
+        self.lrelu = nn.LeakyReLU()
+        self.dropout = nn.Dropout(p=0.1)
+        self.batchnorm1 = nn.BatchNorm1d(300)
+        self.batchnorm2 = nn.BatchNorm1d(30)
+
+    def forward(self, inputs, inputs2):
+        x = self.lrelu(self.layer_1(inputs))
+        x = self.batchnorm1(x)
+        x = self.lrelu(self.layer_2(x))
+        
