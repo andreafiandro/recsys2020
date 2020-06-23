@@ -5,21 +5,17 @@
 ## Requirements
 
 ```
-pip freeze results
-
 boto3==1.12.39
 botocore==1.15.39
 certifi==2020.4.5.1
 chardet==3.0.4
 click==7.1.1
 dataclasses==0.6
-decorator==4.4.2
 docutils==0.15.2
 filelock==3.0.12
 idna==2.9
 jmespath==0.9.5
 joblib==0.14.1
-networkx==2.4
 numpy==1.18.2
 pandas==1.0.3
 python-dateutil==2.8.1
@@ -40,6 +36,7 @@ transformers==2.8.0
 urllib3==1.25.8
 
 ```
+NB: pip freeze results at the end of the challenge. Some packages may not be necessary.
 
 ## Usage
 
