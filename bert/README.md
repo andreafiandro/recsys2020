@@ -1,4 +1,5 @@
 # BERT For Sequence Classification with Linear Classifier
+# BERT For Sequence Classification with CNN Classifier
 
 [Recsys 2020 Twitter Challenge](https://recsys-twitter.com/).
 
