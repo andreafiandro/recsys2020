@@ -2,6 +2,10 @@
 
 [Recsys 2020 Twitter Challenge](https://recsys-twitter.com/).
 
+## Draft Pipeline
+
+<img src="./draftpipeline.svg">
+
 ## Requirements
 
 ```
