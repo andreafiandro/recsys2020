@@ -143,19 +143,25 @@ def read_dataframes(filename: str, per_day=False) -> dict:
     nrows = None #Set for debug
 
     cols = ['Hashtags', 'Present_links', 'Present_domains', 'Timestamp'] #cols 1,4,5,8 in order
+    col_ids = [1, 4, 5, 8]
     col_to_agg = ['Hashtags', 'Present_links', 'Present_domains']
     days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     col_time = 'Timestamp'
     col_count = 'count'
+    output_dataframes = {}
 
-    df = pd.read_csv(filename, sep='\u0001', header=None, nrows=nrows, usecols=[1, 4, 5, 8]) #use_cols = cols ids
+    if per_day == False: #remove timestamp if not used
+        col_ids.pop()
+        cols.pop()
+
+    df = pd.read_csv(filename, sep='\u0001', header=None, nrows=nrows, usecols=col_ids) #use_cols = cols ids
     df.columns = cols
     df = df.dropna(subset=col_to_agg, how='all')
     #Split multiple entries and then explode them
     df = df.assign(Hashtags=df.Hashtags.str.split('\t'))
     df = df.assign(Present_domains=df.Present_domains.str.split('\t'))
     df = df.assign(Present_links=df.Present_links.str.split('\t'))
-    output_dataframes = {}
+
     if per_day == False:
         for i, col in enumerate(col_to_agg): 
             d = df[col].explode().dropna().reset_index().drop('index', axis=1)
