@@ -138,22 +138,44 @@ def test():
     input()
     """
 
+def print_anomalies(dict_a, output) -> None:
+    cols = ['Hashtags', 'Present_links', 'Present_domains']
+    engagements = ['Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp']
+    eng_label = ['RP', 'RT', 'RTC', 'LK']
+    for col in cols:
+        output.write('For %s:\n' %col)
+        output.write('Out of %d uniques %s there are %d/%d = %f %s present in both weeks\n' \
+            %(dict_a[col+'_uniques'], col, dict_a[col+'_intersection'], dict_a[col+'_uniques'], dict_a[col+'_intersection']/dict_a[col+'_uniques'], '%'))
+        output.write('For each engagement the #anomalies (abs(week1-week2) > 0.5 * min(week1, week2))_engagement are: \n')
+        for label in eng_label:
+            output.write(label+'\t\t\t')
+        output.write('\n')
+        for engagement in engagements:
+            output.write('%d\t\t\t' %(dict_a[col+'_'+engagement+'_anomaly']))
+        output.write('\n\n')
+        output.write('__________________________________\n\n')
 
-def read_dataframes(filename: str, per_day=False) -> dict:
+
+def read_dataframes(filename: str, per_day=False, anomaly=False, single_file=False) -> dict:
     nrows = None #Set for debug
 
-    cols = ['Hashtags', 'Present_links', 'Present_domains', 'Timestamp'] #cols 1,4,5,8 in order
-    col_ids = [1, 4, 5, 8]
+    cols = ['Hashtags', 'Present_links', 'Present_domains', 'Timestamp', \
+         'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp'] #cols 1,4,5,8 in order
+    col_ids = [1, 4, 5, 8, 20, 21, 22, 23]
     col_to_agg = ['Hashtags', 'Present_links', 'Present_domains']
     days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     col_time = 'Timestamp'
     col_count = 'count'
     output_dataframes = {}
 
-    if per_day == False: #remove timestamp if not used
-        col_ids.pop()
-        cols.pop()
+    if anomaly == False:
+        col_ids = col_ids[:4]
+        cols = cols[:4]
+    if per_day == False and anomaly == False: #remove timestamp if not used
+        col_ids = col_ids[:3]
+        cols = cols[:3]
 
+    #col_ids = [i+1 for i in col_ids] #TODO: remove- sample training
     df = pd.read_csv(filename, sep='\u0001', header=None, nrows=nrows, usecols=col_ids) #use_cols = cols ids
     df.columns = cols
     df = df.dropna(subset=col_to_agg, how='all')
@@ -161,39 +183,81 @@ def read_dataframes(filename: str, per_day=False) -> dict:
     df = df.assign(Hashtags=df.Hashtags.str.split('\t'))
     df = df.assign(Present_domains=df.Present_domains.str.split('\t'))
     df = df.assign(Present_links=df.Present_links.str.split('\t'))
+    if anomaly:
+        output_dict = {}
+        df[col_time] = pd.to_datetime(df[col_time], unit='s').dt.week.astype(str)
+        weeks = sorted(df[col_time].drop_duplicates().to_list())
+        if single_file:
+            for col in col_to_agg:
+                d = df.drop(df.columns.difference([col_time, col] + cols[-4:]), axis=1).dropna(subset=[col], how='all')
+                d = d.explode(col).reset_index().drop('index', axis=1)
+                output_dict[col+'_occurrences'] = len(d)
+                output_dict[col+'_uniques'] = len(d[col].drop_duplicates())
+                #d = d.groupby([col_time, col]).agg('count').reset_index()
+                d1 = d.loc[d[col_time] == weeks[0]].drop(col_time, axis=1).groupby(col).agg('count').reset_index()
+                d2 = d.loc[d[col_time] == weeks[1]].drop(col_time, axis=1).groupby(col).agg('count').reset_index()
+                d_intersection = pd.merge(d1, d2, how='inner', on=col)
+                output_dict[col+'_intersection'] = len(d_intersection[col])
+                output_dict[col+'_w1'] = d1
+                output_dict[col+'_w2'] = d2
+                #print(d_intersection.head())
+                #print(d_intersection.columns)
+                #print(cols[-4:])
+                for engagement in cols[-4:]:
+                    eng_a = engagement+'_x'
+                    eng_b = engagement+'_y'
+                    #print(d_intersection.columns[5], d_intersection.columns[1])
+                    #print(eng_b, eng_a)
+                    #d_res = d_intersection.loc[abs(d_intersection[eng_a]-d_intersection[eng_b]) > 0.5 * min(d_intersection[eng_a], d_intersection[eng_b])]
+                    #d_res = d_intersection.loc[lambda row: abs(row[eng_a]-row[eng_b]) > 0.5 * min(row[eng_a], row[eng_b])]
+                    #d_res = d_intersection[abs(d_intersection.eng_a-d_intersection.eng_b) > 0.5 * min(d_intersection.eng_a, d_intersection.eng_b)]
+                    #d_res = d_intersection[abs(d_intersection[eng_a]-d_intersection[eng_b]) > 0.5 * min(d_intersection[eng_a], d_intersection[eng_b])]
+                    d_res = d_intersection.drop(d_intersection.columns.difference([eng_a, eng_b]), axis=1)
+                    #d_res = d_res[d_res.apply(lambda row: row['abs'] > 0.5 * row['min'], axis=1)]
+                    d_res = d_res[abs(d_res[eng_a] - d_res[eng_b]) > 0.5 * d_res[[eng_a, eng_b]].min(axis=1)]
+                    #print(d_res.head(), len(d_res))
+                    #input()
+                    #d_res = d_intersection[d_intersection.apply(lambda row: abs(row[eng_a]-row[eng_b]) > 0.5 * min(row[eng_a], row[eng_b]))]
+                    #d_res = d_intersection[d_intersection.apply(abs(d_intersection[eng_a]-d_intersection[eng_b]) > 0.5 * min(d_intersection[eng_a], d_intersection[eng_b]))]
+                    output_dict[col+'_'+engagement+'_anomaly'] = len(d_res)
+                    output_dict[col+'_'+engagement+'_tot'] = d_intersection[eng_a].sum() + d_intersection[eng_b].sum()
+                    output_dict[col+'_'+engagement+'_intersection_w1'] = d_intersection[eng_a].sum()
+                    output_dict[col+'_'+engagement+'_intersection_w2'] = d_intersection[eng_b].sum()
 
-    if per_day == False:
-        for i, col in enumerate(col_to_agg): 
-            d = df[col].explode().dropna().reset_index().drop('index', axis=1)
-            output_dataframes[col+'_'+col_count] = len(d.index)
-            #print(d.head())
-            d = d.groupby(col).size().reset_index(name=col_count)
-            #print(d.head())
-            output_dataframes[col] = d
-            #List of dataframe (col, occurrences)
-            #print(d.loc[d['count']>1])
+        return output_dict
     else:
-        df[col_time] = pd.to_datetime(df[col_time], unit='s').dt.day_name().astype(str)
-        for col in col_to_agg: 
-            d = df.drop(df.columns.difference([col_time, col]), axis=1).dropna(how='any')
-            #print(d.head(), len(d.index))
-            d = d.explode(col).reset_index().drop('index', axis=1).dropna()
-            #print(d.head(), len(d.index))
-            output_dataframes[col+'_'+col_count] = len(d.index) #total occurrences of col 
-            #print(d.head())
-            d = d.groupby([col_time, col]).size().reset_index(name=col_count)
-            #print(d.head())
-            output_dataframes[col] = d # day, col, occurrences
-            df_per_day = d.drop(col, axis=1).groupby(col_time, as_index=False).agg(sum)
-            #print(df_per_day, df_per_day['count'].sum())
-            for day in days_of_week:
-                #print(day)
-                #print(df_per_day.loc[df_per_day[col_time] == day].values[0][1])
-                output_dataframes[col+'_'+day] = df_per_day.loc[df_per_day[col_time] == day].values[0][1] #Total occurrences per day
+        if per_day == False:
+            for i, col in enumerate(col_to_agg): 
+                d = df[col].explode().dropna().reset_index().drop('index', axis=1)
+                output_dataframes[col+'_'+col_count] = len(d.index)
+                #print(d.head())
+                d = d.groupby(col).size().reset_index(name=col_count)
+                #print(d.head())
+                output_dataframes[col] = d
+                #List of dataframe (col, occurrences)
+                #print(d.loc[d['count']>1])
+        else:
+            df[col_time] = pd.to_datetime(df[col_time], unit='s').dt.day_name().astype(str)
+            for col in col_to_agg: 
+                d = df.drop(df.columns.difference([col_time, col]), axis=1).dropna(how='any')
+                #print(d.head(), len(d.index))
+                d = d.explode(col).reset_index().drop('index', axis=1).dropna()
+                #print(d.head(), len(d.index))
+                output_dataframes[col+'_'+col_count] = len(d.index) #total occurrences of col 
+                #print(d.head())
+                d = d.groupby([col_time, col]).size().reset_index(name=col_count)
+                #print(d.head())
+                output_dataframes[col] = d # day, col, occurrences
+                df_per_day = d.drop(col, axis=1).groupby(col_time, as_index=False).agg(sum)
+                #print(df_per_day, df_per_day['count'].sum())
+                for day in days_of_week:
+                    #print(day)
+                    #print(df_per_day.loc[df_per_day[col_time] == day].values[0][1])
+                    output_dataframes[col+'_'+day] = df_per_day.loc[df_per_day[col_time] == day].values[0][1] #Total occurrences per day
+                    
                 
-            
-        #grouped = df.groupby('Timestamp', as_index=False).agg(Counter)
-        #print(grouped.head())
+            #grouped = df.groupby('Timestamp', as_index=False).agg(Counter)
+            #print(grouped.head())
     
     return output_dataframes
 
@@ -266,7 +330,6 @@ def process_files(argv: list, output, per_day=False) -> None:
         
         #dataframes_a = read_dataframes(argv[i]) if i == 0 else dataframes_next
         dataframes_a = read_dataframes(argv[i], per_day=per_day) if i == 0 else dataframes_next
-
         for j in range(i+1, len(argv)):
             if os.path.isfile(argv[j]) == False:
                 print('File %s do not exists' %argv[j])
@@ -284,15 +347,22 @@ def process_files(argv: list, output, per_day=False) -> None:
 def main(argv: list) -> None:
     print('Number of arguments:', len(argv), 'arguments.')
     print('Argument List:', str(argv))
-    if len(argv) < 2:
-        print('Need at minimumt two files.')
+    if len(argv) < 1:
+        print('No files.')
         return
     output_file = './output_statistics.txt'
     output = io.open(output_file, 'w', encoding='utf-8')
+    output.write('\t\t\t\t\t\t %s \n' %(''.join(['_' for _ in range(len(output_file)+3)])))
+    output.write('\t\t\t\t\t\t | %s |\n' %output_file )
+    output.write('\t\t\t\t\t\t %s \n' %(''.join(['_' for _ in range(len(output_file)+3)])))
     output.write('_________________________________________________________________________________________________________\n\n')
-    process_files(argv, output)
-    output.write('_________________________________________________________________________________________________________\n\n')
-    process_files(argv, output, True)
+    if len(argv) == 1:
+        dataframes_a = read_dataframes(argv[0], anomaly=True, single_file=True)
+        print_anomalies(dataframes_a, output)
+    else:
+        process_files(argv, output)
+        output.write('_________________________________________________________________________________________________________\n\n')
+        process_files(argv, output, True)
     output.write('_________________________________________________________________________________________________________\n')
     output.close()
 
