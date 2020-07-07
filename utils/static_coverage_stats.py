@@ -137,6 +137,50 @@ def test():
 
     input()
     """
+def top_user_engagements(filename: str, N = 25):
+    nrows = None #Set for debug
+
+    cols = ['User_id_engaging', \
+         'Reply_engagement_timestamp', 'Retweet_engagement_timestamp', 'Retweet_with_comment_engagement_timestamp', 'Like_engagement_timestamp'] 
+    col_ids = [14, 20, 21, 22, 23]
+    cols_output = ['Reply', 'Retweet', 'Retweet_with_comment', 'Like']
+    col_time = 'Timestamp'
+    col_engagement = 'Type'
+    col_count = 'Count'
+    col_rank = 'User_rank'
+
+    #col_ids = [i+1 for i in col_ids] #TODO: remove - sample training
+    df = pd.read_csv(filename, sep='\u0001', header=None, nrows=nrows, usecols=col_ids) #use_cols = cols ids
+    df.columns = cols
+    df = df.dropna(subset=cols[1:], how='all') #remove pseudonegatives
+    print(df.head())
+    output = []
+    for col in cols[1:]:
+        df_out = df.drop(df.columns.difference([cols[0], col]), axis=1).dropna()
+        df_out.columns = [cols[0], col_time]
+        #print(df_out.head())
+        top_users = df_out.groupby(cols[0]).size().reset_index(name=col_count)
+        #print(top_users.head())
+        top_users = top_users.sort_values(col_count, ascending=False)
+        top_users = top_users.head(N).reset_index().drop([col_count,'index'], axis=1)
+        top_users[col_rank] = top_users.index
+        #print(top_users.head())
+        #input()
+        #print(top_users.head(), len(top_users), '\ndf_out len:', len(df_out))
+        df_out = pd.merge(top_users, df_out, how='inner', on=cols[0])
+        df_out.insert(0, col_engagement, col)
+        #print(df_out.head(), len(df_out))
+        if len(output) == 0:
+            output = df_out
+            #print(len(output), len(df_out))
+        else:
+            output = output.append(df_out, ignore_index=True)
+            #print(len(output), len(df_out))
+    #print(output.head(), len(output))
+    output.to_csv('./output_top_user.csv', index=False)
+    
+    
+
 
 def print_anomalies(dict_a, output) -> None:
     cols = ['Hashtags', 'Present_links', 'Present_domains']
@@ -165,7 +209,7 @@ def read_dataframes(filename: str, per_day=False, anomaly=False, single_file=Fal
     col_to_agg = ['Hashtags', 'Present_links', 'Present_domains']
     days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     col_time = 'Timestamp'
-    col_count = 'count'
+    col_count = 'Count'
     output_dataframes = {}
 
     if anomaly == False:
@@ -264,7 +308,7 @@ def read_dataframes(filename: str, per_day=False, anomaly=False, single_file=Fal
     
 def create_statistics(dfs_a, dfs_b, output, per_day = False) -> None:
     cols = ['Hashtags', 'Present_links', 'Present_domains']
-    col_count = 'count'
+    col_count = 'Count'
     col_time = 'Timestamp'
     days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     if per_day == False:
@@ -357,6 +401,7 @@ def main(argv: list) -> None:
     output.write('\t\t\t\t\t\t %s \n' %(''.join(['_' for _ in range(len(output_file)+3)])))
     output.write('_________________________________________________________________________________________________________\n\n')
     if len(argv) == 1:
+        top_user_engagements(argv[0])
         dataframes_a = read_dataframes(argv[0], anomaly=True, single_file=True)
         print_anomalies(dataframes_a, output)
     else:
@@ -369,4 +414,5 @@ def main(argv: list) -> None:
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+    print('All Done.')
     
