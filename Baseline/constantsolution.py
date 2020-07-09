@@ -1,4 +1,4 @@
-from constantoptimization import ConstantOptimization
+from constantutils import ConstantOptimization
 import argparse
 
 parser = argparse.ArgumentParser(description='POLINKS Optimized constant solution for Recsys Challenge 2020')

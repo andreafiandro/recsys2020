@@ -2,16 +2,32 @@
 
 This repository includes the code to replicate the two submissions of the POLINKS Team.
 
-The first one, called *Optimized Constant*  achieve the sixth place in the final leaderboard. 
+The first one, called *Optimized Constant*  achieve the sixth place in the final leaderboard. An overview of the model is represented in the following image:
+
+<img src="images/constant_model.png" style="zoom:33%;" />
 
 ## Optimized Constant
 
 This algorithm was created to optimize the result and to find the best constant for the two metrics of the challenge.
 
+Install the requirements:
+
+```bash
+pip install -r requirements.txt	
+```
+
+
+
 To run the algorithm just put the files *val.tsv* and *competition_test.tsv* in the same folder of the script and run:
 
 ```bash
-python baseline.py
+python constant_solution.py --trainingpath mypath/training.tsv --validationpath mypath/val.tsv --testpath mypath/test.tsv
+```
+
+If you want to compute again the value of th CTR use the following option:
+
+```bash
+python constant_solution.py --computectr
 ```
 
 
@@ -48,7 +64,7 @@ Below are listed the steps to reproduce the solution.
 
 An overall idea of the model is outlined in the image below:
 
-<img src=".\images\model_schema.png" alt="Overall architecture" style="zoom:50%;" />
+<img src="images\model_schema.png" alt="Overall architecture" style="zoom:50%;" />
 
 ### Logical steps
 
